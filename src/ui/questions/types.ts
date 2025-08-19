@@ -4,6 +4,10 @@ export type AiHook = {
   baseLine: string;
   questionLine: string;
   validationWord: string;
+  // Optional per-question image prompt to steer DALL·E generation
+  // If omitted, a contextual prompt will be composed from the adventure story
+  // and the target word so the generated image clearly depicts the word.
+  imagePrompt?: string;
 };
 
 export type Question = {

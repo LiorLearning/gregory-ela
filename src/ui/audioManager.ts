@@ -13,7 +13,9 @@ export const audioManager = {
     activeAudio = null;
     try {
       // Also stop Web Speech API if speaking
-      (window as any).speechSynthesis?.cancel();
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
     } catch {}
   },
   setActive: (el: ManagedAudio): void => {

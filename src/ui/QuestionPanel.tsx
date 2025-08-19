@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { ImagePanel } from './ImagePanel';
 import bg1Url from '../../bg1.png';
 import { Question, BlendingQuestion, SpeechQuestion } from './questions/types';
 import { blendingQuestions as blendingQuestionsData, speechQuestions as speechQuestionsData, longAQuestions as longAQuestionsData, questions as regularQuestionsData, options } from './questions/data';
@@ -13,7 +14,7 @@ type Props = {
 };
 
 export function QuestionPanel({ onComplete }: Props): JSX.Element {
-  const { appendEvent, setHookForStep, setPendingAdventureChat } = useStory();
+  const { state: storyState, appendEvent, setHookForStep, setPendingAdventureChat } = useStory();
   // Blending question data (first question) - COMMENTED OUT FOR NOW
   const blendingQuestions: BlendingQuestion[] = []; // blendingQuestionsData;
 
@@ -26,8 +27,8 @@ export function QuestionPanel({ onComplete }: Props): JSX.Element {
   // Question data
   const questions: Question[] = regularQuestionsData;
   
-  // Flow order: adventure mode (step 1) -> speech -> long A questions -> adventure mode -> regular questions -> adventure mode (blending step removed)
-  const totalSteps = 1 + blendingQuestions.length + speechQuestions.length + longAQuestions.length + 1 + questions.length + 1;
+  // Flow order: adventure mode (step 1) -> long A questions -> speech -> adventure mode -> regular questions -> adventure mode (blending step removed)
+  const totalSteps = 1 + blendingQuestions.length + longAQuestions.length + speechQuestions.length + 1 + questions.length + 1;
   
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -48,8 +49,15 @@ export function QuestionPanel({ onComplete }: Props): JSX.Element {
   const [speechContinuationInput, setSpeechContinuationInput] = useState<string>('');
   const [speechValidationMessage, setSpeechValidationMessage] = useState<string>('');
   const [hasAutoplayedSpeechPrompt, setHasAutoplayedSpeechPrompt] = useState<boolean>(false);
+  // AI hint for speech step
+  const [speechHint, setSpeechHint] = useState<string>('');
+  const [isSpeechHintLoading, setIsSpeechHintLoading] = useState<boolean>(false);
+  // Track that a speech attempt finished processing, even if transcript is empty
+  const [hasSpeechEvaluated, setHasSpeechEvaluated] = useState<boolean>(false);
   // Global speech state for toggle-able audio button
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  // Focus handle for speech Try Again
+  const tryAgainBtnRef = useRef<HTMLButtonElement | null>(null);
   // Story continuation experiment state
   const [storyContext, setStoryContext] = useState<string[]>([]);
   const [aiSummary, setAiSummary] = useState<string>('');
@@ -63,12 +71,22 @@ export function QuestionPanel({ onComplete }: Props): JSX.Element {
   const summaryAudioRef = useRef<HTMLAudioElement | null>(null);
   // Track current ad-hoc ElevenLabs playback label for toggle buttons
   const currentElevenLabelRef = useRef<string | null>(null);
+  // Track last autoplayed speech passage to avoid replays
+  const lastAutoplayedSpeechPassageRef = useRef<string | null>(null);
   const [hasAutoplayedSummary, setHasAutoplayedSummary] = useState<boolean>(false);
   const [hasGeneratedSummary, setHasGeneratedSummary] = useState<boolean>(false);
+  // Long A specific passage state
+  const [longAPassage, setLongAPassage] = useState<string>('');
+  const [hasGeneratedLongAPassage, setHasGeneratedLongAPassage] = useState<boolean>(false);
+  const [hasAutoplayedLongAPassage, setHasAutoplayedLongAPassage] = useState<boolean>(false);
+  const [isLongAPassageLoading, setIsLongAPassageLoading] = useState<boolean>(false);
   const [summaryRefreshCount, setSummaryRefreshCount] = useState<number>(0);
   const [continuationInput, setContinuationInput] = useState<string>('');
   const [validationMessage, setValidationMessage] = useState<string>(''); // AI 1-2 word reply
   const [validatedContinuation, setValidatedContinuation] = useState<string>(''); // shows as user bubble
+  // Short Socratic hint when an answer is incorrect
+  const [incorrectHint, setIncorrectHint] = useState<string>('');
+  const [isIncorrectHintLoading, setIsIncorrectHintLoading] = useState<boolean>(false);
   // Voice capture for continuation (lightweight Web Speech API)
   const [isContRecording, setIsContRecording] = useState<boolean>(false);
   const [contRecognition, setContRecognition] = useState<any>(null);
@@ -80,6 +98,64 @@ export function QuestionPanel({ onComplete }: Props): JSX.Element {
   const [hasAutoplayedContPrompt, setHasAutoplayedContPrompt] = useState<boolean>(false);
   // Dynamic header shown in the green container during continuation (CTA or AI help lines)
   const [continuationHeader, setContinuationHeader] = useState<string>('');
+  const [isContinuationHeaderLoading, setIsContinuationHeaderLoading] = useState<boolean>(false);
+
+  // Image-step state (optional branch after a successful response)
+  const [isImageStepActive, setIsImageStepActive] = useState<boolean>(false);
+  const [imageLoading, setImageLoading] = useState<boolean>(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [imageDescription, setImageDescription] = useState<string>('');
+  const [imageFlowSource, setImageFlowSource] = useState<'regular' | 'speech' | null>(null);
+  const [isImageRecording, setIsImageRecording] = useState<boolean>(false);
+  const [imageRecognition, setImageRecognition] = useState<any>(null);
+  // Auto image generation for emoji questions
+  const questionImageCacheRef = useRef<Map<string, string>>(new Map());
+  const [questionImageUrl, setQuestionImageUrl] = useState<string | null>(null);
+  const [questionImageLoading, setQuestionImageLoading] = useState<boolean>(false);
+  const pregenStartedRef = useRef<boolean>(false);
+  const [questionImageRegenerating, setQuestionImageRegenerating] = useState<boolean>(false);
+  // Speech recording for speech continuation input
+  const [isSpeechContRecording, setIsSpeechContRecording] = useState<boolean>(false);
+  const [speechContRecognition, setSpeechContRecognition] = useState<any>(null);
+  
+  // Lightweight back-and-forth chat during incorrect attempts
+  const sendIncorrectFollowup = async (studentText: string): Promise<void> => {
+    try {
+      setIsContinuationHeaderLoading(true);
+      const target = hookTargetWord;
+      const system = `Speak like a warm, playful tutor for young readers. Be natural and Socratic.
+Rules:
+- Reply in at most two short sentences (<=25 words total).
+- Do not reveal the target word.
+- Encourage, ask one small guiding question if helpful.
+- Keep focus on listening and long-\u0101 spelling for this step.
+- Optional theme: adventure.`;
+      const user = `Context: Step 3 spelling practice (long-\u0101). Target word (do not say): ${target}.
+Student said: ${studentText}
+Give a brief, friendly response that nudges them without giving the answer.`;
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user }
+        ] })
+      });
+      const data = await res.json();
+      const reply = (data?.reply || '').trim();
+      if (reply) {
+        setContinuationHeader(reply);
+        try { audioManager.stopAll(); currentElevenLabelRef.current = reply; await playElevenTTS(reply); } catch {}
+      } else {
+        setContinuationHeader('Good thinking! Listen once more—what long-\u0101 fits best?');
+      }
+    } catch {
+      setContinuationHeader('Good thinking! Listen once more—what long-\u0101 fits best?');
+    } finally {
+      setIsContinuationHeaderLoading(false);
+    }
+  };
   
   // Blending-related state
   const [blendingSoundOn, setBlendingSoundOn] = useState(true);
@@ -94,7 +170,47 @@ export function QuestionPanel({ onComplete }: Props): JSX.Element {
     const foundWords = expectedWords.filter(word => lowerTranscript.includes(word.toLowerCase()));
     const requiredWords = Math.max(3, Math.ceil(expectedWords.length * 0.6));
     
+    console.log('🎯 Speech success check:', {
+      transcript: lowerTranscript,
+      expectedWords,
+      foundWords,
+      requiredWords,
+      success: foundWords.length >= requiredWords
+    });
+    
     return foundWords.length >= requiredWords;
+  };
+
+
+
+  // Generate AI hint for speech (without auto-playing)
+  const generateSpeechHint = async (transcript: string) => {
+    if (!currentSpeechQuestion) return;
+    
+    try {
+      setIsSpeechHintLoading(true);
+      const sys = 'You are a friendly, concise reading coach for kids. Be specific, warm, and brief (max 15 words). Do not scold. Nudge user to try again and read entire passage.';
+      const user = `The child read: "${transcript}". Target passage focuses on these key words: ${currentSpeechQuestion.expectedWords.join(', ')}. Give one natural-sounding hint that nudges them to read entire passage including 2–3 of those words next time.`;
+      const r = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [
+          { role: 'system', content: sys },
+          { role: 'user', content: user }
+        ] })
+      });
+      const d = await r.json();
+      const hint = (d?.reply || '').trim();
+      const finalHint = hint || `Try to include words like ${currentSpeechQuestion.expectedWords.slice(0,3).join(', ')}.`;
+      setSpeechHint(finalHint);
+      console.log('💾 Generated AI hint (not auto-playing):', finalHint);
+    } catch {
+      const finalHint = `Try to include words like ${currentSpeechQuestion.expectedWords.slice(0,3).join(', ')}.`;
+      setSpeechHint(finalHint);
+      console.log('💾 Generated fallback AI hint (not auto-playing):', finalHint);
+    } finally {
+      setIsSpeechHintLoading(false);
+    }
   };
   const [currentPhonemeIndex, setCurrentPhonemeIndex] = useState(-1); // -1 means no highlight
   const [blendingTranscript, setBlendingTranscript] = useState<string>('');
@@ -104,20 +220,39 @@ export function QuestionPanel({ onComplete }: Props): JSX.Element {
   const [blendingAudioBlob, setBlendingAudioBlob] = useState<Blob | null>(null);
   const [blendingMediaRecorder, setBlendingMediaRecorder] = useState<MediaRecorder | null>(null);
   const [blendingRecognition, setBlendingRecognition] = useState<any>(null);
+  // Auto-stop on silence during speech recording
+  const silenceTimerRef = useRef<number | null>(null);
+  
+  // Focus the Try Again button when speech result appears
+  useEffect(() => {
+    if (!isRecording && transcript && !showSpeechContinuation) {
+      tryAgainBtnRef.current?.focus();
+    }
+  }, [isRecording, transcript, showSpeechContinuation]);
+  
+  const replaySpeechPassage = async (): Promise<void> => {
+    try {
+      const textToSpeak = (dynamicSpeechPassage && dynamicSpeechPassage.trim()) || currentSpeechQuestion?.text || '';
+      if (!textToSpeak) return;
+      audioManager.stopAll();
+      currentElevenLabelRef.current = textToSpeak;
+      await playElevenTTS(textToSpeak);
+    } catch {}
+  };
   
   // Determine current step type
   const isAdventureMode1 = currentQuestionIndex === 0;
   const isBlendingQuestion = currentQuestionIndex >= 1 && currentQuestionIndex < 1 + blendingQuestions.length;
-  const isSpeechQuestion = currentQuestionIndex >= 1 + blendingQuestions.length && currentQuestionIndex < 1 + blendingQuestions.length + speechQuestions.length;
-  const isLongAQuestion = currentQuestionIndex >= 1 + blendingQuestions.length + speechQuestions.length && currentQuestionIndex < 1 + blendingQuestions.length + speechQuestions.length + longAQuestions.length;
-  const isAdventureMode4 = currentQuestionIndex === (1 + blendingQuestions.length + speechQuestions.length + longAQuestions.length);
-  const isAdventureMode9 = currentQuestionIndex === (1 + blendingQuestions.length + speechQuestions.length + longAQuestions.length + 1 + questions.length);
+  const isLongAQuestion = currentQuestionIndex >= 1 + blendingQuestions.length && currentQuestionIndex < 1 + blendingQuestions.length + longAQuestions.length;
+  const isSpeechQuestion = currentQuestionIndex >= 1 + blendingQuestions.length + longAQuestions.length && currentQuestionIndex < 1 + blendingQuestions.length + longAQuestions.length + speechQuestions.length;
+  const isAdventureMode4 = currentQuestionIndex === (1 + blendingQuestions.length + longAQuestions.length + speechQuestions.length);
+  const isAdventureMode9 = currentQuestionIndex === (1 + blendingQuestions.length + longAQuestions.length + speechQuestions.length + 1 + questions.length);
   const isAdventureMode = isAdventureMode1 || isAdventureMode4 || isAdventureMode9;
   const currentBlendingQuestion = isBlendingQuestion ? blendingQuestions[currentQuestionIndex - 1] : null;
-  const currentSpeechQuestion = isSpeechQuestion ? speechQuestions[currentQuestionIndex - 1 - blendingQuestions.length] : null;
-  const currentLongAQuestion = isLongAQuestion ? longAQuestions[currentQuestionIndex - 1 - blendingQuestions.length - speechQuestions.length] : null;
+  const currentLongAQuestion = isLongAQuestion ? longAQuestions[currentQuestionIndex - 1 - blendingQuestions.length] : null;
+  const currentSpeechQuestion = isSpeechQuestion ? speechQuestions[currentQuestionIndex - 1 - blendingQuestions.length - longAQuestions.length] : null;
   const currentRegularQuestion = (!isBlendingQuestion && !isSpeechQuestion && !isLongAQuestion && !isAdventureMode)
-    ? questions[currentQuestionIndex - 1 - blendingQuestions.length - speechQuestions.length - longAQuestions.length - 1]
+    ? questions[currentQuestionIndex - 1 - blendingQuestions.length - longAQuestions.length - speechQuestions.length - 1]
     : null;
   // Continuation experiment flags (now data-driven via aiHook)
   const isFirstRegularStep = (!isBlendingQuestion && !isSpeechQuestion && !isLongAQuestion && !isAdventureMode && currentRegularQuestion?.id === 1);
@@ -127,12 +262,12 @@ export function QuestionPanel({ onComplete }: Props): JSX.Element {
 
   // AI hook config (data-driven) with safe fallbacks to preserve current behavior
   const aiCfg = currentRegularQuestion?.aiHook || currentLongAQuestion?.aiHook;
-  const hookTargetWord = aiCfg?.targetWord || (isSecondRegularStep ? 'cave' : (isFirstRegularStep ? 'space' : (currentRegularQuestion?.word || currentLongAQuestion?.word || '')));
+  const hookTargetWord = aiCfg?.targetWord || (isSecondRegularStep ? 'tome' : (isFirstRegularStep ? 'scroll' : (currentRegularQuestion?.word || currentLongAQuestion?.word || '')));
   const hookQuestionLine = aiCfg?.questionLine || (isFirstRegularStep ? 'Listen and type the word' : 'Listen and type the word');
   const hookBaseLine = aiCfg?.baseLine || (isFirstRegularStep
-    ? 'With Earth safe, they drift through the silent dark toward the alien planet.'
-    : 'The caverns echo with mystery as they continue their mission.');
-  const hookValidationWord = aiCfg?.validationWord || (isSecondRegularStep ? 'cave' : (isFirstRegularStep ? 'space' : (currentLongAQuestion?.word || 'word')));
+    ? 'With ancient knowledge gained, Kaida moves deeper into the mystical library corridors.'
+    : 'The library echoes with whispered secrets as Kaida continues his quest for wisdom.');
+  const hookValidationWord = aiCfg?.validationWord || (isSecondRegularStep ? 'tome' : (isFirstRegularStep ? 'scroll' : (currentLongAQuestion?.word || 'word')));
   const hookIntent = aiCfg?.intent || (isFirstRegularStep ? 'spelling' : 'spelling');
 
   // Context helpers (centralized, but preserving existing behavior)
@@ -146,6 +281,270 @@ export function QuestionPanel({ onComplete }: Props): JSX.Element {
     if (isSecondRegularStep) return storyContext[storyContext.length - 1] || validatedContinuation || '';
     // Fallback: latest context event
     return storyContext[storyContext.length - 1] || '';
+  };
+
+  // Pick the latest meaningful story event, skipping image bookkeeping
+  const getLatestMeaningfulEvent = (): string => {
+    try {
+      const events = Array.isArray(storyState?.storyEvents) ? storyState!.storyEvents : [];
+      for (let i = events.length - 1; i >= 0; i -= 1) {
+        const e = String(events[i] || '').trim();
+        if (!e) continue;
+        const lower = e.toLowerCase();
+        if (lower.startsWith('image created:') || lower.startsWith('image regenerated:')) continue;
+        return e;
+      }
+    } catch {}
+    // Fall back to local context chain
+    const ctx = getLastEvent();
+    return ctx || '';
+  };
+
+  // Force-regenerate the current question image using most recent story context
+  const regenerateQuestionImage = async (): Promise<void> => {
+    const studentId = String(storyState?.metadata?.protagonist || 'student').toLowerCase().replace(/\s+/g, '-') || 'student';
+    const stepKey = isLongAQuestion ? 'longA' : (!isBlendingQuestion && !isSpeechQuestion && !isAdventureMode ? 'regular' : '');
+    const questionId = isLongAQuestion ? currentLongAQuestion?.id : currentRegularQuestion?.id;
+    if (!stepKey || !questionId) return;
+    const key = `${studentId}:${stepKey}:${questionId}`;
+    const explicitPrompt = aiCfg?.imagePrompt;
+    const targetWord = hookTargetWord || currentRegularQuestion?.word || currentLongAQuestion?.word || '';
+    const basePrompt = buildQuestionImagePrompt({
+      targetWord,
+      baseLine: hookBaseLine,
+      questionLine: hookQuestionLine,
+      explicit: explicitPrompt
+    });
+    // Force-inject the latest story beat explicitly at the front to ensure model prioritizes it
+    const latestEvent = getLatestMeaningfulEvent();
+    const prompt = latestEvent
+      ? `Reflect this new story update front-and-center: ${latestEvent}. ${basePrompt}`
+      : basePrompt;
+    try {
+      setQuestionImageRegenerating(true);
+      const res = await fetch('/api/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+      const data = await res.json();
+      const url = (data?.imageUrl || '').trim();
+      if (url) {
+        questionImageCacheRef.current.set(key, url);
+        setQuestionImageUrl(url);
+        try { window.localStorage.setItem(`images:v1:${key}`, url); } catch {}
+        try { appendEvent(`Image regenerated: ${prompt}`); } catch {}
+      }
+    } catch {
+      // ignore errors; keep current image
+    } finally {
+      setQuestionImageRegenerating(false);
+    }
+  };
+
+  // Build a DALL·E prompt for the current question image
+  const buildQuestionImagePrompt = (params: { targetWord: string; baseLine: string; questionLine: string; explicit?: string }): string => {
+    const context = getLastEvent() || buildContextText() || '';
+    if (params.explicit && params.explicit.trim()) return params.explicit.trim();
+    const word = params.targetWord;
+    const base = params.baseLine || '';
+    const ask = params.questionLine || '';
+    // Keep short; /api/image will wrap with kid-safe epic style
+    return `Clear, unmistakable depiction of the word "${word}" inside our mystical Library of Time adventure. Context: ${context || base}. Hint from tutor: ${ask}. Ensure the subject visually communicates "${word}" at a glance.`;
+  };
+
+  const ensureQuestionImage = async (key: string, explicitPrompt?: string) => {
+    if (questionImageCacheRef.current.has(key)) {
+      setQuestionImageUrl(questionImageCacheRef.current.get(key) || null);
+      return;
+    }
+    // Persist once-per-student using story local storage bucket
+    try {
+      const storeKey = `images:v1:${key}`;
+      const existing = window.localStorage.getItem(storeKey);
+      if (existing) {
+        questionImageCacheRef.current.set(key, existing);
+        setQuestionImageUrl(existing);
+        return;
+      }
+    } catch {}
+    const targetWord = hookTargetWord || currentRegularQuestion?.word || currentLongAQuestion?.word || '';
+    const prompt = buildQuestionImagePrompt({
+      targetWord,
+      baseLine: hookBaseLine,
+      questionLine: hookQuestionLine,
+      explicit: explicitPrompt
+    });
+    try {
+      setQuestionImageLoading(true);
+      const res = await fetch('/api/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+      const data = await res.json();
+      const url = (data?.imageUrl || '').trim();
+      if (url) {
+        questionImageCacheRef.current.set(key, url);
+        setQuestionImageUrl(url);
+        try { window.localStorage.setItem(`images:v1:${key}`, url); } catch {}
+      }
+    } catch {
+      // ignore; will fall back to emojis
+    } finally {
+      setQuestionImageLoading(false);
+    }
+  };
+
+  // When a question with emoji image enters view, generate and swap in contextual art
+  useEffect(() => {
+    setQuestionImageUrl(null);
+    setQuestionImageLoading(false);
+    const studentId = String(storyState?.metadata?.protagonist || 'student').toLowerCase().replace(/\s+/g, '-') || 'student';
+    const stepKey = isSpeechQuestion ? 'speech' : isLongAQuestion ? 'longA' : (!isBlendingQuestion && !isAdventureMode ? 'regular' : '');
+    const questionId = isSpeechQuestion ? currentSpeechQuestion?.id : isLongAQuestion ? currentLongAQuestion?.id : currentRegularQuestion?.id;
+    const aiImagePrompt = aiCfg?.imagePrompt;
+    const display = isSpeechQuestion ? currentSpeechQuestion?.imageUrl : isLongAQuestion ? currentLongAQuestion?.imageUrl : currentRegularQuestion?.imageUrl;
+    const isEmoji = !!display && !String(display).startsWith('http');
+    if (!stepKey || !questionId || !isEmoji) return;
+    const key = `${studentId}:${stepKey}:${questionId}`;
+    void ensureQuestionImage(key, aiImagePrompt);
+  }, [currentQuestionIndex]);
+
+  // Pre-generate question images with priority so the user never waits
+  useEffect(() => {
+    if (pregenStartedRef.current) return;
+    pregenStartedRef.current = true;
+    const studentId = String(storyState?.metadata?.protagonist || 'student').toLowerCase().replace(/\s+/g, '-') || 'student';
+    const pregen = async () => {
+      const items: Array<{ key: string; hook?: any; explicit?: string }> = [];
+      // Priority 1: Long A (first image steps the student sees)
+      for (const q of longAQuestions) {
+        const isEmoji = !!q.imageUrl && !String(q.imageUrl).startsWith('http');
+        if (!isEmoji) continue;
+        const key = `${studentId}:longA:${q.id}`;
+        try { if (window.localStorage.getItem(`images:v1:${key}`)) continue; } catch {}
+        items.push({ key, hook: q.aiHook, explicit: q.aiHook?.imagePrompt });
+      }
+      // Priority 2: Regular
+      for (const q of questions) {
+        const isEmoji = !!q.imageUrl && !String(q.imageUrl).startsWith('http');
+        if (!isEmoji) continue;
+        const key = `${studentId}:regular:${q.id}`;
+        try { if (window.localStorage.getItem(`images:v1:${key}`)) continue; } catch {}
+        items.push({ key, hook: q.aiHook, explicit: q.aiHook?.imagePrompt });
+      }
+
+      // Generate all Long A immediately plus the first two regular questions
+      const IMMEDIATE_BATCH_SIZE = Math.max(longAQuestions.length + 2, 3);
+      const immediate = items.slice(0, IMMEDIATE_BATCH_SIZE);
+      const background = items.slice(IMMEDIATE_BATCH_SIZE);
+
+      const generateSeq = async (list: typeof items) => {
+        for (const it of list) {
+          const hook = it.hook || {};
+          const prompt = it.explicit && String(it.explicit).trim()
+            ? String(it.explicit).trim()
+            : buildQuestionImagePrompt({
+                targetWord: hook.targetWord || '',
+                baseLine: hook.baseLine || '',
+                questionLine: hook.questionLine || ''
+              });
+          try {
+            const res = await fetch('/api/image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
+            const data = await res.json();
+            const url = (data?.imageUrl || '').trim();
+            if (url) {
+              try { window.localStorage.setItem(`images:v1:${it.key}`, url); } catch {}
+              questionImageCacheRef.current.set(it.key, url);
+            }
+          } catch {
+            // Ignore failures; questions will fall back gracefully
+          }
+        }
+      };
+
+      await generateSeq(immediate);
+      const schedule = (cb: () => void) => {
+        try { (window as any).requestIdleCallback ? (window as any).requestIdleCallback(cb) : setTimeout(cb, 0); } catch { setTimeout(cb, 0); }
+      };
+      schedule(() => { void generateSeq(background); });
+    };
+    void pregen();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Generate a brief Socratic hint for incorrect spelling answers (max 2 sentences)
+  const generateIncorrectHint = async (params: {
+    targetWord: string;
+    studentAnswer: string;
+    theme?: string;
+  }): Promise<void> => {
+    try {
+      setIsIncorrectHintLoading(true);
+      const { targetWord, studentAnswer, theme } = params;
+      const systemPrompt = `Speak like a warm, playful, socratic tutor for young readers. Be natural—no meta talk.
+Your reply must be at most two short sentences (25 words total). If possible, show the user why they were wrong (eg, by sounding out their spelling attempt if that makes sense). Avoid directly revealing the answer, but instead socratically give hint(s) if appropriate, in a natural manner. If you're giving options, say something like: "Here are some options: .." 
+Optional theme: ${theme || 'adventure'}.`;
+
+      const userPrompt = `Question: Type the word you hear.
+Target word (do not say): ${targetWord}
+Student attempt: ${studentAnswer || '(blank)'}
+Focus: long-ā spelling patterns
+Theme: ${theme || 'adventure'}
+Write one friendly nudge and then three natural-looking variants of the same word shape, comma-separated. Do not say which one is right.`;
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ]
+        })
+      });
+      const data = await res.json();
+      const aiText = (data?.reply || '').trim();
+      if (aiText) {
+        setIncorrectHint(aiText);
+        // Autoplay the hint via ElevenLabs
+        try {
+          audioManager.stopAll();
+          currentElevenLabelRef.current = aiText;
+          await playElevenTTS(aiText);
+        } catch {}
+        return;
+      }
+    } catch {
+      // Fallback: compact, generic hint builder
+      const buildVariants = (word: string): string[] => {
+        const lower = word.toLowerCase();
+        const idx = lower.indexOf('a');
+        if (idx === -1) return ['a_e', 'ai', 'ay', 'ea', 'eigh', 'ey'];
+        const starts = lower.slice(0, idx);
+        const ends = lower.endsWith('e') ? lower.slice(idx + 1, -1) : lower.slice(idx + 1);
+        const make = (mid: string, addSilentE: boolean) => `${starts}${mid}${ends}${addSilentE ? 'e' : ''}`;
+        const silentE = lower.endsWith('e');
+        const variants = [
+          make('a', silentE), // original shape
+          make('ai', false),
+          make('ay', false),
+          make('ea', false),
+          make('eigh', false),
+          make('ey', false)
+        ];
+        // Deduplicate while preserving order
+        return Array.from(new Set(variants));
+      };
+      const word = params.targetWord || 'gate';
+      const variants = buildVariants(word).slice(0, 3);
+      const fallback = `Nice try, adventurer! Choose the long-ā that looks right: ${variants.join(', ')} — all are valid long-ā spellings in different words.`;
+      setIncorrectHint(fallback);
+      try { audioManager.stopAll(); currentElevenLabelRef.current = fallback; await playElevenTTS(fallback); } catch {}
+    } finally {
+      setIsIncorrectHintLoading(false);
+    }
   };
 
   // (Adventure mode state moved into AdventureMode component)
@@ -253,21 +652,28 @@ export function QuestionPanel({ onComplete }: Props): JSX.Element {
         const messages = [
           {
             role: 'system',
-            content: `You write Grade 2 read-aloud passages.
+            content: `You write Kindergarten read-aloud micro-passages that are fun, playful, and tightly tied to the child’s ongoing adventure. Your success lies in keeping the passage at the right difficulty level while also contextualising it perfectly to the adventure to keep it coherent and interesting.
 
-Strict requirements:
-1) 3–4 sentences (40–60 words total)
-2) Include these silent-e target words exactly: "huge", "time", "ride", "space", "place"
-3) Use short sentences, simple words, clear syntax (Grade 2)
-4) Make it exciting and vivid
-5) End with a gentle cliffhanger question (<= 8 words)
-6) Include a tiny, subtle bridge (3–6 words) that connects naturally to the most recent event from the adventure. The bridge must feel organic, not a recap.
+Inputs you may reference:
+- Story snippets: the recent adventure turns below
+- Most recent event: the event provided below
+- Use simple aliases for complex names:
+  Wise Guardian → owl; mystical chamber → hall; ancient archive → den; magical light → glow; knowledge/wisdom → lore
 
-Scene: A magical Moon adventure with Sparkle (pink astronaut suit), her friend (white astronaut suit), and a baby alien guide.`
+Strict rules:
+0) Event anchoring: Build directly on the most recent event; include at least one concrete detail from it. Do not change the location/scene or introduce unrelated new objects.
+1) Audience/decodability: Kindergarten. Mostly CVC and common sight words. Strong silent e focus (long a words). Do not use difficult to speak words like bright etc., since this is a reading exercise for kindergarten students.
+2) Length: EXACTLY 5 lines; each line 5–6 words; total 25–30 words.
+4) Include these target words exactly: "gate", "wise", "make", "shine".
+5) Keep it lively.
+6) Name usage: You may use "Kaida," "owl," and "cat." Avoid other proper names.
+8) Clarity: Very short sentences; vary stems (do not repeat the same opening more than twice).
+9) Ending: Finish with a tiny hook / cliffhanger or next step (≤ 6 words), preferably a question.
+10) Output format: Return ONLY the 5 lines separated by newline characters. No titles, labels, or extra text.`
           },
           {
             role: 'user',
-            content: `Adventure context (most recent last):\n${contextText}\n\nMost recent event to bridge from:\n${lastEvent}\n\nWrite the passage now. Include a natural 3–6 word bridge somewhere that connects to the most recent event, keep Grade 2, 40–60 words, and include: huge, time, ride, space, place. End with a gentle cliffhanger question.`
+            content: `Adventure context (most recent last):\n${contextText}\n\nMost recent event to build on:\n${lastEvent}\n\nTarget words to include exactly: red, net, deck.\n\nWrite the passage now following the rules above. Use at least one concrete detail from the most recent event, stay in the same scene, and avoid unrelated new objects or places. Return only the five lines.`
           }
         ];
 
@@ -303,20 +709,101 @@ Scene: A magical Moon adventure with Sparkle (pink astronaut suit), her friend (
 
   // Do not seed static passage into story context; keep context sourced from Step 1 and user additions only
 
-  // Automatic feedback for speech questions when transcript is ready
+  // Generate Long A specific passage for step 3 (gate question)
   useEffect(() => {
-    if (isSpeechQuestion && transcript && !isRecording && !isProcessing && !hasAutoplayedSpeechPrompt) {
-      const isSuccess = checkSpeechSuccess(transcript);
-      setSpeechSuccess(isSuccess);
+    if (!isLongAQuestion || !currentLongAQuestion || hasGeneratedLongAPassage) return;
+    if (!storyContext.length) return;
+
+    let cancelled = false;
+    const generateLongAPassage = async () => {
+      try {
+        setIsLongAPassageLoading(true);
+        const contextText = storyContext.join('\n');
+        const lastEvent = getLastEvent();
+        const targetWord = currentLongAQuestion.word; // "gate"
+        const baseLine = currentLongAQuestion.aiHook?.baseLine || 'A shimmering starlight doorway appears in the cavern wall.';
+        
+        const messages = [
+          {
+            role: 'system',
+            content: 'You are a super fun, playful narrator for Grade 2 readers. Continue the story in 2–3 short sentences (30–45 words).\n\nHard rules:\n- Build directly on the most recent event; stay in the given scene. No new proper nouns or places.\n- The learner must spell an unseen target word. Do NOT say, define, rhyme, hint letters, show blanks/letter count, or use synonyms of that word.\n- End with a very short, in-world invite to spell (5–7 words).\n\nStyle guidance:\n- Include a brief 3–6 word bridge from the last event.\n- Use 1-2 small emojis if they fit naturally.\n- Keep the tone warm and adventurous with occasional gentle silliness.\n- If suitable, include light physical comedy but don\'t overdo it—avoid multiple movements or excessive sound effects in one passage.\n- Fold the task naturally into the scene\'s dialogue or narration (e.g., "its name," "the entrance," "what we need to pass through").\n- Dont use blanks.\n\nReturn only the story text.'
+          },
+          {
+            role: 'user',
+            content: `Adventure history (most recent last):\n${contextText}\n\nMost recent event to bridge from:\n${lastEvent}\n\nBase line to adapt:\n${baseLine}\n\nUnseen target word (do NOT say it):\n${targetWord}`
+          }
+        ];
+
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages })
+        });
+
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        
+        if (!cancelled) {
+          const passage = data.reply || baseLine;
+          setLongAPassage(passage);
+          setHasGeneratedLongAPassage(true);
+          setIsLongAPassageLoading(false);
+        }
+      } catch (error) {
+        console.error('Error generating Long A passage:', error);
+        if (!cancelled && currentLongAQuestion) {
+          // Fallback to base line
+          const fallback = currentLongAQuestion.aiHook?.baseLine || 'A shimmering starlight doorway appears in the cavern wall. The baby alien points to the glowing opening.';
+          setLongAPassage(fallback);
+          setHasGeneratedLongAPassage(true);
+          setIsLongAPassageLoading(false);
+        }
+      }
+    };
+
+    void generateLongAPassage();
+    return () => { cancelled = true; };
+  }, [isLongAQuestion, currentLongAQuestion, hasGeneratedLongAPassage, storyContext]);
+
+  // Autoplay the Long A passage once it becomes available
+  useEffect(() => {
+    if (!isLongAQuestion || !hasGeneratedLongAPassage || hasAutoplayedLongAPassage) return;
+    const passage = longAPassage?.trim();
+    if (!passage) return;
+    
+    try { audioManager.stopAll(); } catch {}
+    setHasAutoplayedLongAPassage(true);
+    setTimeout(() => { void playElevenTTS(passage); }, 300);
+  }, [isLongAQuestion, hasGeneratedLongAPassage, hasAutoplayedLongAPassage, longAPassage]);
+
+  // Note: Speech question (step 2) does not autoplay - student needs to read it themselves
+
+  // Automatic feedback for speech questions once evaluation is finalized
+  useEffect(() => {
+    console.log('🔍 Auto-feedback effect triggered:', {
+      isSpeechQuestion,
+      hasSpeechEvaluated,
+      isRecording,
+      isProcessing,
+      hasAutoplayedSpeechPrompt,
+      speechSuccess,
+      transcript: transcript?.slice(0, 50) + '...'
+    });
+    
+    if (isSpeechQuestion && hasSpeechEvaluated && !isRecording && !isProcessing && !hasAutoplayedSpeechPrompt) {
+      console.log('✅ Auto-feedback conditions met, setting hasAutoplayedSpeechPrompt=true');
       setHasAutoplayedSpeechPrompt(true);
-      
+
       const speak = async () => {
         audioManager.stopAll();
-        if (isSuccess) {
+        if (speechSuccess) {
+          console.log('🎉 Speaking success message and setting showSpeechContinuation=true');
           await playElevenTTS('Awesome! You read the story beautifully. What do you think happens next in the adventure?');
+          console.log('🔄 Setting showSpeechContinuation=true');
           setShowSpeechContinuation(true);
           try { appendEvent(`User's story addition from reading: ${transcript.slice(0, 160)}`); } catch {}
         } else {
+          console.log('❌ Speaking failure message');
           await playElevenTTS('Good try! Try reading more of the story clearly.');
         }
       };
@@ -325,7 +812,7 @@ Scene: A magical Moon adventure with Sparkle (pink astronaut suit), her friend (
         void speak();
       }, 500);
     }
-  }, [isSpeechQuestion, transcript, isRecording, isProcessing, hasAutoplayedSpeechPrompt]);
+  }, [isSpeechQuestion, hasSpeechEvaluated, speechSuccess, isRecording, isProcessing, hasAutoplayedSpeechPrompt, transcript]);
 
   // Reset AI hook state when entering a hook step (4 or 5) to force regeneration
   useEffect(() => {
@@ -364,11 +851,11 @@ Scene: A magical Moon adventure with Sparkle (pink astronaut suit), her friend (
           {
             role: 'system',
             content:
-              'You are an exciting and playful narrator for Grade 2 readers in Sparkle\'s magical Moon adventure. Write 2–3 short sentences to further the story in an exciting manner.\nBEGIN with a subtle 3–6 word bridge from the most recent event (e.g., "With your brave idea,").\nBuild directly on the learner\'s last addition.\nKeep the scene coherent. DO NOT introduce new planets or proper nouns that are not already in context.\nHave the baby alien or friend give Sparkle a CLEAR instruction: listen and TYPE/SPELL the unseen target word — without naming it.\nUse vivid but simple images; Grade 2 words and short sentences.\nIMPORTANT: Do NOT say, spell, rhyme, define, hint letters, or use synonyms of the target word.\nFinish with a very short sentence inviting the learner to spell (e.g., "Can you spell it?") — max 7 words.\nReturn only the message.'
+              'You are a super fun, playful narrator for Grade 2 readers. Continue the story in 2–3 short sentences (30–45 words).\n\nHard rules:\n- Build directly on the most recent event; stay in the given scene. No new proper nouns or places.\n- The learner must spell an unseen target word. Do NOT say, define, rhyme, hint letters, show blanks/letter count, or use synonyms of that word.\n- End with a very short, in-world invite to spell (5–7 words).\n\nStyle guidance:\n- Include a brief 3–6 word bridge from the last event.\n- Use 1-2 small emojis if they fit naturally.\n- Keep the tone warm and adventurous with occasional gentle silliness.\n- If suitable, include light physical comedy but don\'t overdo it—avoid multiple movements or excessive sound effects in one passage.\n- Fold the task naturally into the scene\'s dialogue or narration (e.g., "its name," "the entrance," "what we need to pass through").\n- Dont use blanks.\n\nReturn only the story text.'
           },
           {
             role: 'user',
-            content: `Current adventure history (most recent last):\n${contextText}\n\nMost recent event to bridge from (use this for the 3–6 word bridge):\n${lastEvent}\n\nUnseen target word for this question: ${targetWord}\n\nBase line to adapt: ${baseLine}\n\nWrite 1–2 sentences that:\n- Begin with a subtle 3–6 word bridge tied to the most recent event\n- Stay coherent on the Moon (Sprinkle Chip Caverns); do not introduce new planets/places or characters not in context\n- Are Grade 2 level, short, vivid\n- Clearly tell Sparkle (in-character) to listen and type/spell the unseen word\n- Do NOT reveal, define, spell, or hint letters of the word\n- End with a tiny cliffhanger AND a final short invite to spell (e.g., "Can you spell it?")\n\nDo NOT paste the question line verbatim; fold its meaning into the character instruction.`
+            content: `Adventure history (most recent last):\n${contextText}\n\nMost recent event to bridge from:\n${lastEvent}\n\nBase line to adapt:\n${baseLine}\n\nUnseen target word (do NOT say it):\n${targetWord}`
           }
         ];
         const res = await fetch('/api/chat', {
@@ -379,8 +866,8 @@ Scene: A magical Moon adventure with Sparkle (pink astronaut suit), her friend (
         const data = await res.json();
         if (!cancelled) {
           const summary = (data.reply || '').trim() || (isFirstRegularStep
-            ? '"Look! The silent dark stretches endlessly," whispers the baby alien. "Here\'s a clue, Sparkle: listen and type where we\'re traveling," glows her friend.'
-            : '"The caverns echo with mystery," says her friend. "Here\'s a clue, Sparkle: listen and type the magical word," glows the baby alien.');
+            ? '"Look! The misty corridors stretch endlessly," whispers the glowing owl. "Here\'s a clue, Kaida: listen and type where we\'re traveling," echoes through the ancient halls.'
+            : '"The archives echo with mystery," says the wise owl. "Here\'s a clue, Kaida: listen and type the magical word," resonates through the library.');
           setAiSummary(summary);
           try { setHookForStep('3', summary); } catch {}
           setHasGeneratedSummary(true);
@@ -388,8 +875,8 @@ Scene: A magical Moon adventure with Sparkle (pink astronaut suit), her friend (
       } catch {
         if (!cancelled) {
           setAiSummary(isFirstRegularStep
-            ? '"Look! The silent dark stretches endlessly," whispers the baby alien. "Here\'s a clue, Sparkle: listen and type where we\'re traveling," glows her friend.'
-            : '"The caverns echo with mystery," says her friend. "Here\'s a clue, Sparkle: listen and type the magical word," glows the baby alien.');
+            ? '"Look! The misty corridors stretch endlessly," whispers the glowing owl. "Here\'s a clue, Kaida: listen and type where we\'re traveling," echoes through the ancient halls.'
+            : '"The archives echo with mystery," says the wise owl. "Here\'s a clue, Kaida: listen and type the magical word," resonates through the library.');
           setHasGeneratedSummary(true);
         }
       } finally {
@@ -401,18 +888,24 @@ Scene: A magical Moon adventure with Sparkle (pink astronaut suit), her friend (
   }, [isAiHookStep, isFirstRegularStep, hasGeneratedSummary, storyContext, validatedContinuation, isSecondRegularStep, hookTargetWord, hookQuestionLine, hookBaseLine]);
 
   // Helper: ElevenLabs TTS
-  const playElevenTTS = async (text: string, voiceId?: string): Promise<HTMLAudioElement | null> => {
+  const playElevenTTS = async (text: string, voiceId?: string, speed?: number): Promise<HTMLAudioElement | null> => {
     try {
       // Always preempt any current audio before starting new
       audioManager.stopAll();
       const res = await fetch('/api/text-to-speech', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voice_id: voiceId })
+        body: JSON.stringify({ text, voice_id: voiceId, speed })
       });
       if (!res.ok) return null;
       const data = await res.json();
       const audio = new Audio(data.audioUrl as string);
+      
+      // Apply playback rate if speed is specified and different from 1.0
+      if (speed && speed !== 1.0) {
+        audio.playbackRate = speed;
+      }
+      
       audioManager.setActive(audio);
       audio.onended = () => {
         if (summaryAudioRef.current === audio) setIsSummarySpeaking(false);
@@ -429,6 +922,31 @@ Scene: A magical Moon adventure with Sparkle (pink astronaut suit), her friend (
   };
 
   const handleSummaryAudio = async () => {
+    // For Long A questions, use Long A passage instead of aiSummary
+    if (isLongAQuestion) {
+      if (!longAPassage) return;
+      // Toggle: stop existing audio
+      if (summaryAudioRef.current && !summaryAudioRef.current.paused) {
+        try { summaryAudioRef.current.pause(); summaryAudioRef.current.currentTime = 0; } catch {}
+        setIsSummarySpeaking(false);
+        return;
+      }
+      // Preempt any other audio before playing
+      audioManager.stopAll();
+      const textToSpeak = longAPassage.trim();
+      setIsSummarySpeaking(true);
+      const audio = await playElevenTTS(textToSpeak);
+      if (audio) {
+        summaryAudioRef.current = audio;
+        audio.onended = () => setIsSummarySpeaking(false);
+        audio.onerror = () => setIsSummarySpeaking(false);
+      } else {
+        setIsSummarySpeaking(false);
+      }
+      return;
+    }
+
+    // For regular questions, use aiSummary
     if (!aiSummary) return;
     // Toggle: stop existing audio
     if (summaryAudioRef.current && !summaryAudioRef.current.paused) {
@@ -450,31 +968,73 @@ Scene: A magical Moon adventure with Sparkle (pink astronaut suit), her friend (
     }
   };
 
-  // When the continuation step becomes active (after correct answer), seed the header text
+  // When the continuation step becomes active (after correct answer), seed the header text (AI-generated with context)
   useEffect(() => {
     if (isCorrect && isContinuationStep) {
+      let cancelled = false;
       const defaultLine = isFirstRegularStep
         ? `Yay, "${hookTargetWord}" it is. What adventures await in this vast ${hookTargetWord}? Let\'s include it in your story`
-        : `Awesome, let\'s keep the story going. Include the word "${hookTargetWord}" in what happens next!`;
-      setContinuationHeader(defaultLine);
-    }
-  }, [isCorrect, isContinuationStep, isFirstRegularStep]);
+        : `Let\'s keep the story going—add your next line!`;
 
-  // Autoplay the continuation guidance once when the prompt row mounts (Step 4 & 5)
+      const run = async () => {
+        try {
+          setIsContinuationHeaderLoading(true);
+          const contextText = buildContextText();
+          const lastEvent = getLastEvent();
+          const baseLine = hookBaseLine;
+          const messages = [
+            {
+              role: 'system',
+              content: 'You are a warm, enthusiastic narrator for Grade 2 readers. Write 1-2 short sentences (15-20 words total) that: 1) Celebrate their correct spelling (2-3 words like "Perfect!" or "Yes!"), 2) Reference what just happened in the scene, 3) Ask what happens next using that word (be direct: "Now use \'gate\' to tell what happens next!"). Add one small emoji. Stay connected to the immediate scene context.'
+            },
+            {
+              role: 'user',
+              content: `They just spelled "${hookTargetWord}" correctly!\n\nStory context:\n${contextText}\n\nRecent scene:\n${lastEvent}\n\nQuestion scene:\n${baseLine}\n\nCelebrate, briefly reference the immediate scene, and ask them to continue using "${hookTargetWord}".`
+            }
+          ];
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages })
+          });
+          if (!cancelled) {
+            if (!res.ok) {
+              setContinuationHeader(defaultLine);
+              setIsContinuationHeaderLoading(false);
+              return;
+            }
+            const data = await res.json();
+            const line = (data.reply || '').trim();
+            setContinuationHeader(line || defaultLine);
+            setIsContinuationHeaderLoading(false);
+          }
+        } catch {
+          if (!cancelled) {
+            setContinuationHeader(defaultLine);
+            setIsContinuationHeaderLoading(false);
+          }
+        }
+      };
+
+      // Clear first and set loading state
+      setContinuationHeader('');
+      void run();
+      return () => { cancelled = true; };
+    }
+  }, [isCorrect, isContinuationStep, isFirstRegularStep, hookTargetWord, hookBaseLine]);
+
+  // Autoplay the continuation guidance once when the AI-generated header is ready
   useEffect(() => {
-    if (isCorrect && isContinuationStep && !isContinuationHidden && !hasAutoplayedContPrompt) {
+    if (isCorrect && isContinuationStep && !isContinuationHidden && !hasAutoplayedContPrompt && continuationHeader) {
       setHasAutoplayedContPrompt(true);
       audioManager.stopAll();
-      const line = (continuationHeader || (isFirstRegularStep
-        ? `Yay, "${hookTargetWord}" it is. What adventures await in this vast ${hookTargetWord}? Let\'s include it in your story`
-        : `Awesome, let\'s keep the story going. Include the word "${hookTargetWord}" in what happens next!`));
-      void playElevenTTS(line);
+      void playElevenTTS(continuationHeader);
     }
-  }, [isCorrect, isContinuationStep, isFirstRegularStep, isContinuationHidden, hasAutoplayedContPrompt, continuationHeader]);
+  }, [isCorrect, isContinuationStep, isContinuationHidden, hasAutoplayedContPrompt, continuationHeader]);
 
-  // Step 0: On entering Step 4, stop any ongoing audio and autoplay summary
+  // Autoplay AI-generated summary for all regular questions with aiHook when entering step
   useEffect(() => {
-    if (isFirstRegularStep && aiSummary && !hasAutoplayedSummary) {
+    if (isAiHookStep && aiSummary && !hasAutoplayedSummary && currentRegularQuestion) {
       audioManager.stopAll();
       const run = async () => {
         const textToSpeak = aiSummary.trim();
@@ -483,7 +1043,7 @@ Scene: A magical Moon adventure with Sparkle (pink astronaut suit), her friend (
       };
       void run();
     }
-  }, [isFirstRegularStep, aiSummary, hasAutoplayedSummary]);
+  }, [isAiHookStep, aiSummary, hasAutoplayedSummary, currentRegularQuestion]);
 
   // Evaluate continuation via AI with richer outcomes
   type ContinuationEval = { status: 'valid' | 'invalid' | 'help'; message: string };
@@ -491,17 +1051,17 @@ Scene: A magical Moon adventure with Sparkle (pink astronaut suit), her friend (
     try {
       const targetWord = hookValidationWord;
       const messages = [
-        { role: 'system', content: `You are Sparkle's fun AI companion helping kids write their magical Moon adventure story. Your job is to check if they used the target word "${targetWord}" in their sentence and respond naturally like a friendly narrator. 
+        { role: 'system', content: `You are Kaida's fun AI companion helping kids write their mystical Library of Time adventure story. Your job is to check if they used the target word "${targetWord}" in their sentence and respond naturally like a friendly narrator. 
 
 Respond as minified JSON: {"status":"valid|invalid|help","message":"<your response>"}
 
 RULES:
-- "valid": Only if the EXACT word "${targetWord}" appears as a standalone word (case-insensitive). Say something encouraging like "Perfect!" or "Great use of ${targetWord}!" 
-- "invalid": If they used a different word or misspelled it, gently point out what they wrote and what you need. Be specific: "I see you wrote '[their word]' but I need the word '${targetWord}'. Try again!"
+- "valid": If the word "${targetWord}" appears in any form (case-insensitive) - including within contractions, compound words, or with punctuation. Say something encouraging like "Perfect!" or "Great use of ${targetWord}!" 
+- "invalid": If they used a completely different word or clearly misspelled it, gently point out what they wrote and what you need. Be specific: "I see you wrote '[their word]' but I need the word '${targetWord}'. Try again!"
 - "help": If they ask for help or seem stuck, give a creative prompt about what ${targetWord} could do in the adventure.
 
 Be conversational, not scripted. Acknowledge what they actually wrote. Keep responses under 25 words.` },
-        { role: 'user', content: `Sentence: ${text}\n\nCurrent story context: ${storyContext.join(' ')}\n\nHelp the child continue Sparkle's magical Moon adventure using the word "${targetWord}".` }
+        { role: 'user', content: `Sentence: ${text}\n\nCurrent story context: ${storyContext.join(' ')}\n\nHelp the child continue Kaida's mystical Library of Time adventure using the word "${targetWord}".` }
       ];
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -511,19 +1071,64 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
       const data = await res.json();
       const raw: string = (data.reply || '').trim();
       let parsed: ContinuationEval | null = null;
-      try { parsed = JSON.parse(raw) as ContinuationEval; } catch {}
+      
+      // Enhanced JSON parsing with better error handling
+      try { 
+        parsed = JSON.parse(raw) as ContinuationEval; 
+      } catch (parseError) {
+        console.log('JSON parse failed for AI response:', raw, 'Error:', parseError);
+        // Try to extract status and message from malformed JSON
+        const statusMatch = raw.match(/"status"\s*:\s*"(valid|invalid|help)"/i);
+        const messageMatch = raw.match(/"message"\s*:\s*"([^"]+)"/i);
+        if (statusMatch && messageMatch && statusMatch[1] && messageMatch[1]) {
+          parsed = { status: statusMatch[1] as 'valid' | 'invalid' | 'help', message: messageMatch[1] };
+          console.log('Recovered from malformed JSON:', parsed);
+        }
+      }
+      
       if (parsed && parsed.status && parsed.message) return parsed;
-      // Fallback heuristic
-      if (new RegExp(`\\b${targetWord}\\b`, 'i').test(text)) {
+      
+      // Enhanced fallback validation - more flexible word detection
+      const normalizedText = text.toLowerCase().replace(/[^\w\s]/g, ' '); // Replace punctuation with spaces
+      const normalizedTargetWord = targetWord.toLowerCase();
+      
+      // Check if target word appears anywhere in the normalized text
+      if (normalizedText.includes(normalizedTargetWord)) {
         return { status: 'valid', message: 'Great!' };
       }
-      if (/help|hint|example|idk|don\'?t know/i.test(text)) {
-        return { status: 'help', message: `No worries! What if Sparkle's ${targetWord} could help her save the alien planet? How might she use it?` };
+      
+      // Check for common misspellings or similar words
+      const words = normalizedText.split(/\s+/);
+      const similarWord = words.find(word => {
+        // Check if word is very similar (allowing for minor typos)
+        const minLength = Math.min(word.length, normalizedTargetWord.length);
+        if (minLength < 2) return false;
+        
+        // Simple similarity check - allow 1 character difference for words > 2 chars
+        let differences = 0;
+        const maxDifferences = normalizedTargetWord.length > 2 ? 1 : 0;
+        
+        for (let i = 0; i < Math.max(word.length, normalizedTargetWord.length); i++) {
+          if (word[i] !== normalizedTargetWord[i]) {
+            differences++;
+            if (differences > maxDifferences) return false;
+          }
+        }
+        return differences <= maxDifferences;
+      });
+      
+      if (similarWord) {
+        return { status: 'valid', message: 'Great!' };
       }
-      return { status: 'invalid', message: `Use the word “${targetWord}” in your sentence.` };
-    } catch {
+      
+      if (/help|hint|example|idk|don\'?t know/i.test(text)) {
+        return { status: 'help', message: `No worries! What if Kaida's ${targetWord} could help him explore the mystical library? How might he use it?` };
+      }
+      return { status: 'invalid', message: `Use the word "${targetWord}" in your sentence.` };
+    } catch (error) {
+      console.error('Validation error:', error);
       const targetWord = hookValidationWord;
-      return { status: 'help', message: `Try using the word “${targetWord}”.` };
+      return { status: 'help', message: `Try using the word "${targetWord}"` };
     }
   };
 
@@ -540,7 +1145,7 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
       // Immediately animate out (no added wait, no praise TTS)
         setIsContinuationHidden(true);
       setIsFeedbackRemoved(false);
-      try { appendEvent(`User's continuation (Step 3): ${text}`); } catch {}
+      try { appendEvent(`User's continuation (Step 3): ${text}`); } catch {} // Store for AdventureMode story summaries
       try { setPendingAdventureChat(text); } catch {}
       // Auto-advance to Step 4 after a short beat
       // Reset step-level UI state to avoid bleed into Step 4
@@ -565,11 +1170,184 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
       setValidationMessage(result.message || 'Try again');
       void playElevenTTS(result.message || 'Try again');
     } else {
-      const msg = result.message || `No worries! What if Sparkle\'s ${hookTargetWord} could help her save the alien planet? How might she use it?`;
+      const msg = result.message || `No worries! What if Kaida\'s ${hookTargetWord} could help him explore the mystical library? How might he use it?`;
       setValidationMessage(msg);
       setContinuationHeader(msg);
       void playElevenTTS(msg);
     }
+  };
+
+  // Image flow: start from the student's continuation input
+  const startImageFromContinuation = async () => {
+    const raw = continuationInput.trim();
+    if (!raw) return;
+    // Seed description directly from user text (can be refined later by LLM)
+    setImageDescription(raw);
+    setImageUrl(null);
+    setImageError(null);
+    setIsImageStepActive(true);
+    setImageFlowSource('regular');
+    // Immediately trigger generation for a smooth, single-step flow
+    void generateImageFromDescription(raw);
+  };
+
+  // Image flow: start from the speech continuation input
+  const startImageFromSpeechContinuation = async () => {
+    const raw = speechContinuationInput.trim();
+    if (!raw) return;
+    setImageDescription(raw);
+    setImageUrl(null);
+    setImageError(null);
+    setIsImageStepActive(true);
+    setImageFlowSource('speech');
+    void generateImageFromDescription(raw);
+  };
+
+  // Generate image from current imageDescription using the image API
+  const generateImageFromDescription = async (overridePrompt?: string) => {
+    const prompt = (overridePrompt ?? imageDescription).trim();
+    if (!prompt) return;
+    try {
+      setImageLoading(true);
+      setImageError(null);
+      const res = await fetch('/api/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Failed to generate image');
+      }
+      const data = await res.json();
+      const url = (data?.imageUrl || '').trim();
+      if (!url) throw new Error('No image returned');
+      setImageUrl(url);
+      // Persist lightweight event so the story can reference this image
+      try { appendEvent(`Image created: ${prompt}`); } catch {}
+    } catch (err: any) {
+      setImageError(err?.message || 'Failed to generate image. Please try again.');
+    } finally {
+      setImageLoading(false);
+    }
+  };
+
+  // Close image flow and continue the story using the same input
+  const continueAfterImage = async () => {
+    // Treat the image path as acceptance of the user's text; record and advance
+    if (imageFlowSource === 'speech') {
+      const text = speechContinuationInput.trim();
+      if (text) {
+        try { appendEvent(`User's story addition (Speech): ${text}`); } catch {}
+        setStoryContext(prev => [...prev, `User's story addition: ${text}`]);
+        setSpeechContinuationInput('');
+        setShowSpeechContinuation(false);
+        try { setPendingAdventureChat(text); } catch {}
+      }
+    } else {
+      const text = continuationInput.trim();
+      if (text) {
+        try { appendEvent(`User's continuation (Step 3): ${text}`); } catch {} // Store for AdventureMode story summaries
+        setValidatedContinuation(text);
+        setStoryContext(prev => [...prev, text]);
+        try { setPendingAdventureChat(text); } catch {}
+      }
+    }
+    // Ensure Step 4 regenerates fresh summary from the new continuation
+    setHasGeneratedSummary(false);
+    setHasAutoplayedSummary(false);
+    setAiSummary('');
+    setIsSummaryLoading(true);
+    // Reset Step 3 UI-specific flags just like the non-image path
+    setShowFeedback(false);
+    setIsCorrect(false);
+    setSelectedOption(null);
+    setSpellingInput('');
+    setHasAutoplayedContPrompt(false);
+    setContinuationHeader('');
+    setValidationMessage('');
+    setIsContinuationHidden(false);
+    setIsFeedbackRemoved(false);
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {}
+    setIsImageStepActive(false);
+    // Move forward to the next step immediately
+    handleNextQuestion();
+  };
+
+  // Speech-to-text for image prompt editing (lightweight Web Speech API)
+  const startImagePromptRecording = () => {
+    try {
+      const SpeechRecognition: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      // Reset previous text when speaking begins
+      let accumulated: string = '';
+      setImageDescription('');
+      recognition.onresult = (event: any) => {
+        let interim = '';
+        let newFinal = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const res = event.results[i];
+          if (res.isFinal) newFinal += res[0].transcript + ' ';
+          else interim += res[0].transcript;
+        }
+        if (newFinal) accumulated += newFinal;
+        setImageDescription((accumulated + interim).trimStart());
+      };
+      recognition.onend = () => { setIsImageRecording(false); setImageRecognition(null); };
+      recognition.onerror = () => { setIsImageRecording(false); setImageRecognition(null); };
+      recognition.start();
+      setIsImageRecording(true);
+      setImageRecognition(recognition);
+    } catch {
+      setIsImageRecording(false);
+    }
+  };
+
+  const stopImagePromptRecording = () => {
+    try { const rec = imageRecognition; if (rec) rec.stop(); } catch {}
+    setIsImageRecording(false);
+    setImageRecognition(null);
+  };
+
+  // Speech-to-text for speech continuation "what happens next" input
+  const startSpeechContRecording = () => {
+    try {
+      const SpeechRecognition: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      let accumulated: string = speechContinuationInput || '';
+      recognition.onresult = (event: any) => {
+        let interim = '';
+        let newFinal = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const res = event.results[i];
+          if (res.isFinal) newFinal += res[0].transcript + ' ';
+          else interim += res[0].transcript;
+        }
+        if (newFinal) accumulated += newFinal;
+        setSpeechContinuationInput((accumulated + interim).trimStart());
+      };
+      recognition.onend = () => { setIsSpeechContRecording(false); setSpeechContRecognition(null); };
+      recognition.onerror = () => { setIsSpeechContRecording(false); setSpeechContRecognition(null); };
+      recognition.start();
+      setIsSpeechContRecording(true);
+      setSpeechContRecognition(recognition);
+    } catch {
+      setIsSpeechContRecording(false);
+    }
+  };
+
+  const stopSpeechContRecording = () => {
+    try { const rec = speechContRecognition; if (rec) rec.stop(); } catch {}
+    setIsSpeechContRecording(false);
+    setSpeechContRecognition(null);
   };
 
   const handleSubmitSpeechContinuation = async () => {
@@ -864,19 +1642,22 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
       };
 
       recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/wav' });
+        const blob = new Blob(chunks, { type: 'audio/webm' });
         setAudioBlob(blob);
         stream.getTracks().forEach(track => track.stop());
         // Auto-process to simplify UI (no separate submit needed)
         processAudio(blob);
       };
 
-      // Start recording with time slices to ensure continuous capture
-      recorder.start(1000); // 1 second chunks
+      // Start recording as single continuous stream (like other working steps)
+      recorder.start();
       setMediaRecorder(recorder);
       setIsRecording(true);
       setTranscript('');
       setRealtimeTranscript('');
+      console.log('🔄 Resetting hasSpeechEvaluated=false and hasAutoplayedSpeechPrompt=false');
+      setHasSpeechEvaluated(false);
+      setHasAutoplayedSpeechPrompt(false);
 
       // Start real-time speech recognition
       startRealtimeSpeechRecognition();
@@ -921,6 +1702,13 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
         // Display accumulated final + current interim
         const displayTranscript = (accumulatedTranscript + interimTranscript).trim();
         setRealtimeTranscript(displayTranscript);
+        // Auto-stop if we have enough final speech and input has paused
+        try { if (silenceTimerRef.current) window.clearTimeout(silenceTimerRef.current); } catch {}
+        silenceTimerRef.current = window.setTimeout(() => {
+          if (displayTranscript.length > 0 && isRecording) {
+            stopRecording();
+          }
+        }, 1500) as unknown as number;
       };
       
       recognition.onerror = (event: any) => {
@@ -978,44 +1766,55 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
     setIsProcessing(true);
     
     try {
-      // Use the accumulated real-time transcript as base
-      let finalTranscript = realtimeTranscript.trim();
-      
-      // Always try to get a high-quality transcript from OpenAI Whisper for final evaluation
+      // Rely exclusively on OpenAI Whisper for evaluation
       console.log('Processing with OpenAI Whisper for final transcript...');
       const formData = new FormData();
-      formData.append('audio', blobToProcess, 'recording.wav');
+      formData.append('audio', blobToProcess, 'recording.webm');
 
-      // Use relative path for Vercel API routes
-      const response = await fetch('/api/speech-to-text', {
+      const response = await fetch('http://localhost:3000/api/speech-to-text', {
         method: 'POST',
         body: formData,
       });
 
       if (response.ok) {
         const result = await response.json();
-        if (result.transcript && result.transcript.trim().length > 0) {
-          // Use Whisper result if it's substantially longer or if real-time was empty
-          if (!finalTranscript || result.transcript.trim().length > finalTranscript.length * 0.8) {
-            finalTranscript = result.transcript.trim();
-            console.log('Using OpenAI Whisper transcript:', finalTranscript);
-          } else {
-            console.log('Using accumulated real-time transcript (more complete):', finalTranscript);
-          }
-        } else if (!finalTranscript) {
-          console.log('Both Whisper and real-time transcripts are empty');
+        const whisperTranscript = result.transcript?.trim() || '';
+        console.log('✅ Whisper transcript received:', whisperTranscript);
+        
+        // Evaluate immediately with Whisper result (no debouncing needed)
+        setTranscript(whisperTranscript);
+        const success = checkSpeechSuccess(whisperTranscript);
+        console.log('🔬 Whisper-only evaluation:', {
+          transcript: whisperTranscript,
+          success,
+          expectedWords: currentSpeechQuestion?.expectedWords
+        });
+        
+        setSpeechSuccess(success);
+        
+        // Generate hint if needed (but don't auto-play)
+        if (!success && currentSpeechQuestion) {
+          generateSpeechHint(whisperTranscript);
+        } else {
+          setSpeechHint('');
         }
-        setTranscript(finalTranscript);
+        
+        console.log('📝 Setting hasSpeechEvaluated=true (Whisper-only)');
+        setHasSpeechEvaluated(true);
+        setIsProcessing(false);
       } else {
-        // Use real-time transcript if API call failed
-        setTranscript(finalTranscript);
-        console.log('API failed, using accumulated real-time transcript:', finalTranscript);
+        // Whisper failed - don't evaluate, ask user to retry
+        const errorData = await response.text();
+        console.error('❌ Whisper API failed:', response.status, errorData);
+        setIsProcessing(false);
+        alert('Speech recognition failed. Please try recording again.');
+        return;
       }
     } catch (error) {
-      console.error('Error processing audio:', error);
-      alert('Error processing audio. Please try again.');
-    } finally {
+      console.error('❌ Error processing audio:', error);
       setIsProcessing(false);
+      alert('Speech recognition failed. Please try recording again.');
+      return;
     }
   };
 
@@ -1029,6 +1828,15 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
         const correct = spellingInput.toLowerCase().trim() === (currentLongAQuestion.correctAnswer as string).toLowerCase();
         setIsCorrect(correct);
         setShowFeedback(true);
+        if (!correct) {
+          void generateIncorrectHint({
+            targetWord: String(currentLongAQuestion.correctAnswer || currentLongAQuestion.word || ''),
+            studentAnswer: spellingInput,
+            theme: 'adventure'
+          });
+        } else {
+          setIncorrectHint('');
+        }
       } else if (selectedOption !== null) {
         // For long A multiple choice questions, check the selected option
         const correct = selectedOption === currentLongAQuestion.correctAnswer;
@@ -1036,6 +1844,15 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
         setShowFeedback(true);
         // Ensure feedback is visible
         try { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); } catch {}
+        if (!correct) {
+          void generateIncorrectHint({
+            targetWord: String(currentLongAQuestion.correctAnswer || currentLongAQuestion.word || ''),
+            studentAnswer: spellingInput || String(selectedOption),
+            theme: 'adventure'
+          });
+        } else {
+          setIncorrectHint('');
+        }
       }
     } else if (currentRegularQuestion) {
       if (currentRegularQuestion.isSpelling) {
@@ -1043,6 +1860,15 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
         const correct = spellingInput.toLowerCase().trim() === (currentRegularQuestion.correctAnswer as string).toLowerCase();
         setIsCorrect(correct);
         setShowFeedback(true);
+        if (!correct) {
+          void generateIncorrectHint({
+            targetWord: String(currentRegularQuestion.correctAnswer || currentRegularQuestion.word || ''),
+            studentAnswer: spellingInput,
+            theme: 'adventure'
+          });
+        } else {
+          setIncorrectHint('');
+        }
       } else if (selectedOption !== null) {
         // For regular multiple choice questions, check the selected option
         const correct = selectedOption === currentRegularQuestion.correctAnswer;
@@ -1050,6 +1876,15 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
         setShowFeedback(true);
         // Ensure feedback is visible
         try { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); } catch {}
+        if (!correct) {
+          void generateIncorrectHint({
+            targetWord: String(currentRegularQuestion.correctAnswer || currentRegularQuestion.word || ''),
+            studentAnswer: String(selectedOption),
+            theme: 'adventure'
+          });
+        } else {
+          setIncorrectHint('');
+        }
       }
     }
   };
@@ -1076,6 +1911,8 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
     setSpellingInput('');
     setShowFeedback(false);
     setIsCorrect(false);
+    setIncorrectHint('');
+    setIsIncorrectHintLoading(false);
     // Reset speech-related state
     setAudioBlob(null);
     setTranscript('');
@@ -1090,10 +1927,26 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
 
   // Reset step-level UI state on step change to prevent bleed-through (e.g., green container, old inputs)
   useEffect(() => {
+    // Stop any audio from previous step
+    try { audioManager.stopAll(); } catch {}
+    try {
+      if (summaryAudioRef.current) {
+        summaryAudioRef.current.pause();
+        summaryAudioRef.current.currentTime = 0;
+      }
+    } catch {}
+    setIsSummarySpeaking(false);
+    currentElevenLabelRef.current = null;
+    setHasAutoplayedLongAPassage(false);
+    setHasGeneratedLongAPassage(false);
+    setLongAPassage('');
+    setIsLongAPassageLoading(false);
     setShowFeedback(false);
     setIsCorrect(false);
     setSelectedOption(null);
     setSpellingInput('');
+    setIncorrectHint('');
+    setIsIncorrectHintLoading(false);
     setIsContinuationHidden(false);
     setHasAutoplayedContPrompt(false);
     setContinuationHeader('');
@@ -1175,50 +2028,128 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
     setBlendingAudioBlob(null);
   };
 
-  const handleSoundClick = () => {
-    if ('speechSynthesis' in window) {
-      // Toggle off if currently speaking
-      if (window.speechSynthesis.speaking || isSpeaking) {
-        window.speechSynthesis.cancel();
+  const handleSoundClick = async () => {
+    // Toggle off if currently speaking
+    if (isSpeaking) {
+      audioManager.stopAll();
+      setIsSpeaking(false);
+      return;
+    }
+
+    let textToSpeak = '';
+    if (isBlendingQuestion && currentBlendingQuestion) {
+      textToSpeak = currentBlendingQuestion.word;
+    } else if (isSpeechQuestion && currentSpeechQuestion) {
+      textToSpeak = hasDynamicPassage && dynamicSpeechPassage ? dynamicSpeechPassage : '';
+    } else if (isLongAQuestion && currentLongAQuestion) {
+      textToSpeak = currentLongAQuestion.word;
+    } else if (!isSpeechQuestion && !isBlendingQuestion && !isLongAQuestion && currentRegularQuestion) {
+      textToSpeak = currentRegularQuestion.word;
+    }
+
+    if (textToSpeak.trim()) {
+      setIsSpeaking(true);
+      // Use slower speed (75%) for CVC word pronunciation to help Kindergarten students hear clearly
+      const isWordQuestion = (isLongAQuestion && currentLongAQuestion) || (!isSpeechQuestion && !isBlendingQuestion && !isLongAQuestion && currentRegularQuestion);
+      const speed = isWordQuestion ? 0.75 : 1.0; // Slower for CVC words, normal for passages
+      
+      const audio = await playElevenTTS(textToSpeak, undefined, speed);
+      if (audio) {
+        audio.onended = () => setIsSpeaking(false);
+        audio.onerror = () => setIsSpeaking(false);
+        audio.onpause = () => setIsSpeaking(false);
+        audio.onabort = () => setIsSpeaking(false);
+      } else {
         setIsSpeaking(false);
-        return;
-      }
-
-      let textToSpeak = '';
-      if (isBlendingQuestion && currentBlendingQuestion) {
-        textToSpeak = currentBlendingQuestion.word;
-      } else if (isSpeechQuestion && currentSpeechQuestion) {
-        textToSpeak = hasDynamicPassage && dynamicSpeechPassage ? dynamicSpeechPassage : '';
-      } else if (isLongAQuestion && currentLongAQuestion) {
-        textToSpeak = currentLongAQuestion.word;
-      } else if (!isSpeechQuestion && !isBlendingQuestion && !isLongAQuestion && currentRegularQuestion) {
-        textToSpeak = currentRegularQuestion.word;
-      }
-
-      if (textToSpeak) {
-        const utterance = new SpeechSynthesisUtterance(textToSpeak);
-        utterance.rate = isSpeechQuestion ? 0.8 : 0.7; // Slightly faster for longer text
-        utterance.pitch = 1.1; // Child-friendly pitch
-
-        const voices = window.speechSynthesis.getVoices();
-        const childFriendlyVoice = voices.find(voice =>
-          voice.name.toLowerCase().includes('female') ||
-          voice.name.toLowerCase().includes('samantha') ||
-          voice.name.toLowerCase().includes('karen')
-        );
-        if (childFriendlyVoice) utterance.voice = childFriendlyVoice;
-
-        utterance.onstart = () => setIsSpeaking(true);
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
-
-        window.speechSynthesis.speak(utterance);
       }
     }
   };
 
   return (
     <>
+      {/* Fullscreen image flow overlay when active */}
+      {isImageStepActive && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#f5edff' }}>
+          {/* Large image stage */}
+          <div style={{ maxWidth: 900, margin: '32px auto 0', padding: '0 16px' }}>
+            <div style={{
+              border: '3px solid #8b5cf6',
+              borderRadius: 20,
+              background: 'linear-gradient(180deg,#0f172a 0%,#111827 100%)',
+              height: '64vh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.25)'
+            }}>
+              {!imageUrl && !imageLoading && !imageError && (
+                <div style={{ color: '#9CA3AF' }}>Your image will appear here</div>
+              )}
+              {imageLoading && (
+                <div style={{ display: 'grid', placeItems: 'center', gap: 16 }}>
+                  <div style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: '50%',
+                    background: 'conic-gradient(from 0deg, #8b5cf6 0%, #a78bfa 50%, #8b5cf6 100%)',
+                    mask: 'radial-gradient(farthest-side, transparent 68%, #000 69%)',
+                    WebkitMask: 'radial-gradient(farthest-side, transparent 68%, #000 69%)',
+                    animation: 'spin 1s linear infinite'
+                  }} />
+                  <div style={{ color: '#e5e7eb', fontWeight: 700 }}>Generating your epic scene…</div>
+                </div>
+              )}
+              {imageError && (
+                <div style={{ color: '#DC2626', background: '#FFF1F2', padding: 16, borderRadius: 12 }}>{imageError}</div>
+              )}
+              {imageUrl && !imageLoading && !imageError && (
+                <img src={imageUrl} alt="Generated scene" style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain', objectPosition: 'center', display: 'block' }} />
+              )}
+            </div>
+          </div>
+
+          {/* Prompt editor under image with speech controls */}
+          <div style={{ maxWidth: 900, margin: '16px auto 0', padding: '0 16px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.98)', borderRadius: 16, padding: 12, display: 'grid', gridTemplateColumns: '1fr 44px 140px', gap: 8, alignItems: 'center', boxShadow: '0 10px 28px rgba(0,0,0,0.12)' }}>
+              <input
+                value={imageDescription}
+                onChange={(e) => setImageDescription(e.target.value)}
+                placeholder="Describe what to draw…"
+                style={{ border: '1px solid #E5E7EB', borderRadius: 12, padding: '10px 12px' }}
+              />
+              <button
+                onClick={isImageRecording ? stopImagePromptRecording : startImagePromptRecording}
+                title={isImageRecording ? 'Stop recording' : 'Speak'}
+                aria-label={isImageRecording ? 'Stop recording' : 'Speak'}
+                style={{ width: 44, height: 44, borderRadius: '50%', background: isImageRecording ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: '1px solid rgba(0,0,0,0.1)', color: 'white', display: 'grid', placeItems: 'center', cursor: 'pointer' }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" fill="white"/>
+                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="white"/>
+                </svg>
+              </button>
+              <button
+                onClick={() => { setImageUrl(null); setImageError(null); void generateImageFromDescription(); }}
+                disabled={!imageDescription.trim() || imageLoading}
+                style={{ minWidth: 140, height: 44, borderRadius: 12, background: '#8b5cf6', color: 'white', border: 'none', cursor: (!imageDescription.trim() || imageLoading) ? 'not-allowed' : 'pointer', fontWeight: 700 }}
+              >
+                {imageLoading ? 'Generating…' : 'Generate'}
+              </button>
+            </div>
+          </div>
+
+          {/* Bottom-right control: Continue only */}
+          <div style={{ position: 'fixed', right: 24, bottom: 24 }}>
+            <button
+              onClick={continueAfterImage}
+              style={{ minWidth: 140, height: 44, borderRadius: 12, background: '#10b981', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 8px 24px rgba(16,185,129,0.35)' }}
+            >
+              Continue ➤
+            </button>
+          </div>
+        </div>
+      )}
       {/* CSS Animations and Speech Bubbles */}
       <style>{`
         @keyframes spin {
@@ -1642,16 +2573,7 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                   lineHeight: '1.5',
                   marginBottom: '19.2px'
                 }}>
-                  <div style={{
-                    fontWeight: '700',
-                    marginBottom: '9.6px',
-                    fontSize: '11.2px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    opacity: 0.9
-                  }}>
-                    {blendingTranscript.toLowerCase().includes(currentBlendingQuestion?.word.toLowerCase() || '') ? '🎯 Final Result' : '🔄 Final Result'}
-                  </div>
+                  {/* Removed "Final Result" label for blending, to reduce clutter */}
                   <div style={{
                     background: 'rgba(255,255,255,0.2)',
                     padding: '9.6px 12.8px',
@@ -2008,11 +2930,11 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                 </div>
               )}
 
-              {/* Final result - only show when we have a result */}
-              {transcript && !isRecording && (
+              {/* Final result - show when we have processed audio (even if transcript is short) */}
+              {(hasSpeechEvaluated && !isRecording) && (
                 <div style={{
                   padding: '20px 24px',
-                  background: checkSpeechSuccess(transcript)
+                  background: hasSpeechEvaluated && speechSuccess
                     ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
                     : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                   color: 'white',
@@ -2026,39 +2948,44 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                   width: '100%',
                   maxWidth: '500px'
                 }}>
-                  <div style={{
-                    fontWeight: '700',
-                    marginBottom: '12px',
-                    fontSize: '14px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    opacity: 0.9
-                  }}>
-                    {checkSpeechSuccess(transcript) ? '🎯 Final Result' : '🔄 Final Result'}
+                  {/* AI coaching line on top of container */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
+                    <span style={{ fontSize: 18 }}>
+                      {isSpeechHintLoading
+                        ? 'Thinking…'
+                        : (speechHint && hasSpeechEvaluated && !speechSuccess ? speechHint : '')}
+                    </span>
+                    {speechHint && !isSpeechHintLoading && hasSpeechEvaluated && !speechSuccess && (
+                      <button
+                        onClick={async () => {
+                          const label = String(speechHint || '').trim();
+                          if (!label) return;
+                          if (currentElevenLabelRef.current === label) {
+                            audioManager.stopAll();
+                            currentElevenLabelRef.current = null;
+                            return;
+                          }
+                          currentElevenLabelRef.current = label;
+                          await playElevenTTS(label);
+                        }}
+                        title={(() => { const line = speechHint; return currentElevenLabelRef.current === String(line || '').trim() ? 'Stop' : 'Hear'; })()}
+                        style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.25)', cursor: 'pointer' }}
+                      >🔊</button>
+                    )}
                   </div>
+                  {/* Removed "Final Result" label to reduce clutter */}
                   <div style={{
                     background: 'rgba(255,255,255,0.2)',
                     padding: '12px 16px',
                     borderRadius: '10px',
                     border: '1px solid rgba(255,255,255,0.3)',
-                    fontSize: '16px',
+                    fontSize: '18px',
                     fontWeight: '500',
                     marginBottom: '8px'
                   }}>
-                    "{transcript}"
+                    "{transcript || '…'}"
                   </div>
-                  {currentSpeechQuestion && (
-                    <div style={{
-                      fontSize: '14px',
-                      opacity: 0.9,
-                      fontStyle: 'italic'
-                    }}>
-                      {checkSpeechSuccess(transcript) 
-                        ? `Great! You said key words: ${currentSpeechQuestion.expectedWords.filter(word => transcript.toLowerCase().includes(word.toLowerCase())).join(', ')}`
-                        : `Try to include more words like: ${currentSpeechQuestion.expectedWords.join(', ')}`
-                      }
-                    </div>
-                  )}
+                  {/* Bottom AI text removed to avoid duplication; hint is shown only at the top */}
                 </div>
               )}
 
@@ -2091,14 +3018,14 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                     marginTop: '12px',
                     width: '100%',
                     display: 'grid',
-                    gridTemplateColumns: '1fr 120px',
+                    gridTemplateColumns: '1fr 44px 44px 44px',
                     gap: '8px',
                     alignItems: 'center'
                   }}>
                     <textarea
                       value={speechContinuationInput}
                       onChange={(e) => setSpeechContinuationInput(e.target.value)}
-                      placeholder="What happens next in Sparkle's adventure?"
+                      placeholder="What happens next in Kaida's adventure?"
                       rows={2}
                       style={{
                         width: '100%',
@@ -2112,25 +3039,71 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                         fontSize: '14px'
                       }}
                     />
+                    {/* Mic button for speech continuation */}
                     <button
-                      onClick={handleSubmitSpeechContinuation}
-                      disabled={!speechContinuationInput.trim()}
+                      onClick={isSpeechContRecording ? stopSpeechContRecording : startSpeechContRecording}
+                      title={isSpeechContRecording ? 'Stop recording' : 'Speak'}
+                      aria-label={isSpeechContRecording ? 'Stop recording' : 'Speak'}
                       style={{
-                        minWidth: 120,
+                        width: 44,
                         height: 44,
-                        borderRadius: 12,
-                        background: speechContinuationInput.trim() 
-                          ? 'linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%)'
-                          : '#9ca3af',
-                        color: '#111827',
+                        borderRadius: '50%',
+                        background: isSpeechContRecording ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                         border: '1px solid rgba(255,255,255,0.6)',
-                        cursor: speechContinuationInput.trim() ? 'pointer' : 'not-allowed',
-                        fontWeight: 600,
-                        fontSize: '14px',
+                        color: 'white',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
                       }}
                     >
-                      Submit
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" fill="white"/>
+                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="white"/>
+                      </svg>
+                    </button>
+                    {/* Icon CTA: Create Image (speech) */}
+                    <button
+                      onClick={startImageFromSpeechContinuation}
+                      title="Create image from this response"
+                      aria-label="Create image from this response"
+                      disabled={!speechContinuationInput.trim()}
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        background: speechContinuationInput.trim() ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#9ca3af',
+                        border: '1px solid rgba(255,255,255,0.6)',
+                        color: 'white',
+                        cursor: speechContinuationInput.trim() ? 'pointer' : 'not-allowed',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+                      }}
+                    >
+                      <span role="img" aria-label="Create Image">🌄</span>
+                    </button>
+                    {/* Icon CTA: Continue story (speech) */}
+                    <button
+                      onClick={handleSubmitSpeechContinuation}
+                      title="Submit and continue the story"
+                      aria-label="Submit and continue the story"
+                      disabled={!speechContinuationInput.trim()}
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        background: speechContinuationInput.trim() ? 'linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%)' : '#9ca3af',
+                        color: '#111827',
+                        border: '1px solid rgba(255,255,255,0.6)',
+                        cursor: speechContinuationInput.trim() ? 'pointer' : 'not-allowed',
+                        fontWeight: 800,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+                      }}
+                    >
+                      ➤
                     </button>
                   </div>
                   
@@ -2146,51 +3119,7 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                 </div>
               )}
 
-              {/* Action buttons - only show when we have a result and not in continuation mode */}
-              {!isRecording && transcript && !showSpeechContinuation && (
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  gap: '16px',
-                  width: '100%'
-                }}>
-                  <button
-                    onClick={() => {
-                      setTranscript('');
-                      setRealtimeTranscript('');
-                      setAudioBlob(null);
-                      setIsProcessing(false);
-                      setSpeechSuccess(false);
-                      setHasAutoplayedSpeechPrompt(false);
-                      setSpeechValidationMessage('');
-                    }}
-                    style={{
-                      background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '14px',
-                      padding: '12px 24px',
-                      fontSize: '16px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 12px rgba(245, 158, 11, 0.25)',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseDown={(e) => {
-                      e.currentTarget.style.transform = 'scale(0.95)';
-                    }}
-                    onMouseUp={(e) => {
-                      e.currentTarget.style.transform = 'scale(1)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'scale(1)';
-                    }}
-                  >
-                    🔁 Try Again
-                  </button>
-                </div>
-              )}
+              {/* Action buttons removed per request */}
             </div>
           </div>
         </>
@@ -2199,7 +3128,7 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
           {/* Question prompt for long A questions - moved above image */}
           <div style={{
             marginBottom: '28.8px',
-            padding: '16px 20px',
+            padding: '12px 16px',
             background: 'rgba(255, 255, 255, 0.98)',
             borderRadius: '20px',
             boxShadow: '0 12px 0 rgba(156,126,172,0.25), 0 12px 24px rgba(0,0,0,0.15)',
@@ -2213,11 +3142,11 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                   color: '#111827',
                   lineHeight: 1.5,
                   fontWeight: 400,
-                  fontSize: 20,
+                  fontSize: 17.5,
                   textAlign: 'center',
                   fontFamily: 'Quicksand, sans-serif'
                 }}>
-                  {isSummaryLoading ? 'Creating…' : aiSummary}
+                  {isLongAPassageLoading ? 'Creating…' : longAPassage}
                 </div>
                 {/* Audio button anchored bottom-right without affecting height */}
                 <button
@@ -2243,14 +3172,14 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
             ) : (
               <>
                 <div style={{
-                  fontSize: '19.2px',
+                  fontSize: '17px',
                   fontWeight: '700',
                   color: '#1f2937',
                   marginBottom: '4.8px'
                 }}>
-                  🎧 Listen to Sparkle's word!
+                  🎧 Listen to Kaida's word!
                 </div>
-                <div style={{ fontSize: '14.4px', color: '#6b7280', fontWeight: '500' }}>
+                <div style={{ fontSize: '13px', color: '#6b7280', fontWeight: '500' }}>
                   Type the word you hear.
                 </div>
               </>
@@ -2266,8 +3195,8 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
             boxShadow: '0 6.4px 25.6px rgba(0,0,0,0.15)'
           }}>
             <div style={{
-              width: '320px',
-              height: '224px',
+              width: '100%',
+              maxWidth: '720px',
               position: 'relative',
               margin: '0 auto'
             }}>
@@ -2306,10 +3235,47 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                 </svg>
               </button>
 
+              {/* Regenerate button to the right of image */}
+              <button
+                onClick={() => void regenerateQuestionImage()}
+                title={questionImageRegenerating ? 'Regenerating…' : 'Regenerate image'}
+                aria-label="Regenerate image"
+                disabled={questionImageRegenerating}
+                style={{
+                  position: 'absolute',
+                  right: '-96px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '16px',
+                  background: questionImageRegenerating
+                    ? 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)'
+                    : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                  border: 'none',
+                  cursor: questionImageRegenerating ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 6.4px 19.2px rgba(139, 92, 246, 0.35)',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseDown={(e) => {
+                  if (!questionImageRegenerating) e.currentTarget.style.transform = 'translateY(-50%) scale(0.95)';
+                }}
+                onMouseUp={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+                }}
+              >
+                <span style={{ fontSize: 26, color: 'white' }}>{questionImageRegenerating ? '↻' : '↺'}</span>
+              </button>
+
               {/* Image container */}
               <div style={{
                 width: '100%',
-                height: '100%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -2320,7 +3286,10 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                 letterSpacing: '3.2px',
                 boxShadow: '0 6.4px 25.6px rgba(139, 92, 246, 0.3), inset 0 1.6px 3.2px rgba(255,255,255,0.1)',
                 position: 'relative',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                padding: '8px',
+                maxHeight: '420px',
+                minHeight: '220px'
               }}>
                 <div style={{
                   position: 'absolute',
@@ -2328,9 +3297,24 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                   background: 'radial-gradient(circle at 30% 20%, rgba(139, 92, 246, 0.25) 0%, transparent 50%)',
                   animation: 'pulse 3s ease-in-out infinite'
                 }} />
-                <div style={{ position: 'relative', zIndex: 1, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
-                  {currentLongAQuestion.imageUrl}
+                <div style={{ position: 'relative', zIndex: 1, textShadow: '0 2px 8px rgba(0,0,0,0.5)', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {questionImageLoading ? (
+                    <div style={{ width: 40, height: 40, border: '3px solid rgba(255,255,255,0.3)', borderTop: '3px solid #ffffff', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                  ) : questionImageUrl ? (
+                    <img src={questionImageUrl} alt="Generated scene" style={{ maxWidth: '100%', maxHeight: '404px', width: 'auto', height: 'auto', objectFit: 'contain', objectPosition: 'center', display: 'block', borderRadius: 12 }} />
+                  ) : (
+                    currentLongAQuestion.imageUrl
+                  )}
                 </div>
+                {questionImageRegenerating && (
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'white', fontWeight: 700 }}>
+                      <div style={{ width: 36, height: 36, border: '3px solid rgba(255,255,255,0.4)', borderTop: '3px solid white', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                      <div style={{ fontSize: 13 }}>Regenerating…</div>
+                    </div>
+                  </div>
+                )}
+                {/* Inner regenerate button removed in favor of right-side button */}
               </div>
             </div>
           </div>
@@ -2467,7 +3451,7 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                     color: '#1f2937',
                     marginBottom: '4.8px'
                   }}>
-                    🎧 Listen to Sparkle's word!
+                    🎧 Listen to Kaida's word!
                   </div>
                   <div style={{ fontSize: '14.4px', color: '#6b7280', fontWeight: '500' }}>
                     What sound does it start with?
@@ -2487,8 +3471,8 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
           }}>
             {currentRegularQuestion && (
               <div style={{
-                width: '320px',
-                height: '224px',
+                width: '100%',
+                maxWidth: '720px',
                 position: 'relative',
                 margin: '0 auto'
               }}>
@@ -2527,10 +3511,47 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                   </svg>
                 </button>
 
+                {/* Regenerate button to the right of image (regular questions) */}
+                <button
+                  onClick={() => void regenerateQuestionImage()}
+                  title={questionImageRegenerating ? 'Regenerating…' : 'Regenerate image'}
+                  aria-label="Regenerate image"
+                  disabled={questionImageRegenerating}
+                  style={{
+                    position: 'absolute',
+                    right: '-96px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '16px',
+                    background: questionImageRegenerating
+                      ? 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)'
+                      : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                    border: 'none',
+                    cursor: questionImageRegenerating ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 6.4px 19.2px rgba(139, 92, 246, 0.35)',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseDown={(e) => {
+                    if (!questionImageRegenerating) e.currentTarget.style.transform = 'translateY(-50%) scale(0.95)';
+                  }}
+                  onMouseUp={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+                  }}
+                >
+                  <span style={{ fontSize: 26, color: 'white' }}>{questionImageRegenerating ? '↻' : '↺'}</span>
+                </button>
+
                 {/* Image container */}
                 <div style={{
                   width: '100%',
-                  height: '100%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -2541,7 +3562,10 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                   letterSpacing: '3.2px',
                   boxShadow: '0 6.4px 25.6px rgba(139, 92, 246, 0.3), inset 0 1.6px 3.2px rgba(255,255,255,0.1)',
                   position: 'relative',
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  padding: '8px',
+                  maxHeight: '420px',
+                  minHeight: '220px'
                 }}>
                   <div style={{
                     position: 'absolute',
@@ -2549,9 +3573,24 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                     background: 'radial-gradient(circle at 30% 20%, rgba(139, 92, 246, 0.25) 0%, transparent 50%)',
                     animation: 'pulse 3s ease-in-out infinite'
                   }} />
-                  <div style={{ position: 'relative', zIndex: 1, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
-                    {currentRegularQuestion.imageUrl}
+                  <div style={{ position: 'relative', zIndex: 1, textShadow: '0 2px 8px rgba(0,0,0,0.5)', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {questionImageLoading ? (
+                      <div style={{ width: 40, height: 40, border: '3px solid rgba(255,255,255,0.3)', borderTop: '3px solid #ffffff', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                    ) : questionImageUrl ? (
+                      <img src={questionImageUrl} alt="Generated scene" style={{ maxWidth: '100%', maxHeight: '404px', width: 'auto', height: 'auto', objectFit: 'contain', objectPosition: 'center', display: 'block', borderRadius: 12 }} />
+                    ) : (
+                      currentRegularQuestion.imageUrl
+                    )}
                   </div>
+                  {questionImageRegenerating && (
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'white', fontWeight: 700 }}>
+                        <div style={{ width: 36, height: 36, border: '3px solid rgba(255,255,255,0.4)', borderTop: '3px solid white', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                        <div style={{ fontSize: 13 }}>Regenerating…</div>
+                      </div>
+                    </div>
+                  )}
+                  {/* Corner button removed in favor of right-side external button */}
                 </div>
               </div>
             )}
@@ -2775,84 +3814,92 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                 }}>
                   {validatedContinuation}
                 </div>
-              ) : isCorrect && isContinuationStep
-                ? (
-                    <span>
-                      {validationMessage || continuationHeader || (hookIntent === 'sound'
-                        ? `Yay, "${hookTargetWord}" it is. What adventures await in this vast ${hookTargetWord}? Let\'s include it in your story`
-                        : `Awesome, let\'s keep the story going. Include the word "${hookTargetWord}" in what happens next!`)}
-                      <button
-                        onClick={async () => { 
-                          const line = validationMessage || continuationHeader || (hookIntent === 'sound'
-                            ? `Yay, "${hookTargetWord}" it is. What adventures await in this vast ${hookTargetWord}? Let\'s include it in your story`
-                            : `Awesome, let\'s keep the story going. Include the word "${hookTargetWord}" in what happens next!`);
-                          const label = String(line || '').trim();
-                          if (!label) return;
-                          if (currentElevenLabelRef.current === label) {
-                            audioManager.stopAll();
-                            currentElevenLabelRef.current = null;
-                            return;
-                          }
-                          currentElevenLabelRef.current = label;
-                          await playElevenTTS(label);
-                        }}
-                        title={(() => { const line = validationMessage || continuationHeader || (hookIntent === 'sound' ? `Yay, "${hookTargetWord}" it is. What adventures await in this vast ${hookTargetWord}? Let\'s include it in your story` : `Awesome, let\'s keep the story going. Include the word "${hookTargetWord}" in what happens next!`); return currentElevenLabelRef.current === String(line || '').trim() ? 'Stop' : 'Hear'; })()}
-                        style={{
-                          marginLeft: 10,
-                          width: 28,
-                          height: 28,
-                          borderRadius: 8,
-                          border: '1px solid rgba(255,255,255,0.6)',
-                          background: 'rgba(255,255,255,0.25)',
-                          cursor: 'pointer'
-                        }}
-                      >🔊</button>
+              ) : isCorrect && isContinuationStep && isContinuationHeaderLoading ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{
+                    width: '16px',
+                    height: '16px',
+                    border: '2px solid rgba(255,255,255,0.3)',
+                    borderTop: '2px solid white',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                  }}></div>
+                  <span>Creating your story...</span>
+                </div>
+              ) : isCorrect && isContinuationStep && (validationMessage || continuationHeader) ? (
+                <span>
+                  {validationMessage || continuationHeader}
+                  <button
+                    onClick={async () => { 
+                      const line = validationMessage || continuationHeader;
+                      const label = String(line || '').trim();
+                      if (!label) return;
+                      if (currentElevenLabelRef.current === label) {
+                        audioManager.stopAll();
+                        currentElevenLabelRef.current = null;
+                        return;
+                      }
+                      currentElevenLabelRef.current = label;
+                      await playElevenTTS(label);
+                    }}
+                    title={(() => { const line = validationMessage || continuationHeader; return currentElevenLabelRef.current === String(line || '').trim() ? 'Stop' : 'Hear'; })()}
+                    style={{
+                      marginLeft: 10,
+                      width: 28,
+                      height: 28,
+                      borderRadius: 8,
+                      border: '1px solid rgba(255,255,255,0.6)',
+                      background: 'rgba(255,255,255,0.25)',
+                      cursor: 'pointer'
+                    }}
+                  >🔊</button>
+                </span>
+              ) : isCorrect && !isContinuationStep ? (
+                (currentRegularQuestion?.explanation || currentLongAQuestion?.explanation) || 'Great job!'
+              ) : !isCorrect ? (
+                isIncorrectHintLoading
+                  ? 'Thinking of a hint…'
+                  : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <span>{incorrectHint || ((currentRegularQuestion?.isSpelling || currentLongAQuestion?.isSpelling)
+                        ? 'Listen again and try your best.'
+                        : `Listen to the word "${(currentRegularQuestion?.word || currentLongAQuestion?.word) || 'this word'}" again. What sound do you hear at the beginning?`)}</span>
+                      {incorrectHint && (
+                        <button
+                          onClick={async () => {
+                            const label = String(incorrectHint || '').trim();
+                            if (!label) return;
+                            if (currentElevenLabelRef.current === label) {
+                              audioManager.stopAll();
+                              currentElevenLabelRef.current = null;
+                              return;
+                            }
+                            currentElevenLabelRef.current = label;
+                            await playElevenTTS(label);
+                          }}
+                          title={(() => { const line = incorrectHint; return currentElevenLabelRef.current === String(line || '').trim() ? 'Stop' : 'Hear'; })()}
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 8,
+                            border: '1px solid rgba(255,255,255,0.6)',
+                            background: 'rgba(255,255,255,0.25)',
+                            cursor: 'pointer'
+                          }}
+                        >🔊</button>
+                      )}
                     </span>
                   )
-              : isContinuationStep && validationMessage
-                ? (
-                    <span>
-                      {validationMessage}
-                      <button
-                        onClick={async () => {
-                          const label = String(validationMessage || '').trim();
-                          if (!label) return;
-                          // Toggle: if same label is currently active, stop
-                          if (currentElevenLabelRef.current === label) {
-                            audioManager.stopAll();
-                            currentElevenLabelRef.current = null;
-                            return;
-                          }
-                          currentElevenLabelRef.current = label;
-                          await playElevenTTS(label);
-                        }}
-                        title={currentElevenLabelRef.current === String(validationMessage || '').trim() ? 'Stop' : 'Hear'}
-                        style={{
-                          marginLeft: 10,
-                          width: 28,
-                          height: 28,
-                          borderRadius: 8,
-                          border: '1px solid rgba(255,255,255,0.6)',
-                          background: 'rgba(255,255,255,0.25)',
-                          cursor: 'pointer'
-                        }}
-                      >🔊</button>
-                    </span>
-                  )
-              : isCorrect && !isContinuationStep
-                ? ((currentRegularQuestion?.explanation || currentLongAQuestion?.explanation) || 'Great job!')
-              : ((currentRegularQuestion?.isSpelling || currentLongAQuestion?.isSpelling)
-                  ? 'Listen to the word and try spelling it again.'
-                  : `Listen to the word "${(currentRegularQuestion?.word || currentLongAQuestion?.word) || 'this word'}" again. What sound do you hear at the beginning?`)}
+              ) : null}
             </div>
 
-            {/* Continuation input row (only while composing) */}
+            {/* Continuation input row with mic and icon CTAs */}
             {isCorrect && isContinuationStep && !isContinuationHidden && (
               <div style={{
                 marginTop: '12px',
                 width: '100%',
                 display: 'grid',
-                gridTemplateColumns: '1fr 52px 120px',
+                gridTemplateColumns: '1fr 44px 44px 44px',
                 gap: '8px',
                 alignItems: 'center'
               }}>
@@ -2861,6 +3908,10 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                   onChange={(e) => setContinuationInput(e.target.value)}
                   placeholder="Type your 1–2 sentences here"
                   rows={2}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSubmitContinuation(); }
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); void startImageFromContinuation(); }
+                  }}
                   style={{
                     width: '100%',
                     borderRadius: 9999,
@@ -2873,45 +3924,80 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                     boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.6)'
                   }}
                 />
-                {/* Mic button styled like step 3, immediately to the right */}
+                {/* Microphone button for speech input */}
                 <button
                   onClick={isContRecording ? stopContinuationRecording : startContinuationRecording}
-                  title={isContRecording ? 'Stop recording' : 'Speak'}
+                  title={isContRecording ? "Stop recording" : "Record your response"}
+                  aria-label={isContRecording ? "Stop recording" : "Record your response"}
                   style={{
                     width: 44,
                     height: 44,
                     borderRadius: '50%',
-                    background: isContRecording ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    background: isContRecording 
+                      ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' 
+                      : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
                     border: '1px solid rgba(255,255,255,0.6)',
                     color: 'white',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    boxShadow: isContRecording 
+                      ? '0 4px 12px rgba(239, 68, 68, 0.3)' 
+                      : '0 2px 8px rgba(59, 130, 246, 0.3)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {isContRecording ? (
+                    <div style={{ width: 12, height: 12, background: 'white', borderRadius: 2 }} />
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" fill="white"/>
+                      <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="white"/>
+                    </svg>
+                  )}
+                </button>
+                {/* Icon CTA: Create Image */}
+                <button
+                  onClick={startImageFromContinuation}
+                  title="Create image from this response"
+                  aria-label="Create image from this response"
+                  disabled={!continuationInput.trim()}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: '50%',
+                    background: continuationInput.trim() ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#9ca3af',
+                    border: '1px solid rgba(255,255,255,0.6)',
+                    color: 'white',
+                    cursor: continuationInput.trim() ? 'pointer' : 'not-allowed',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
                   }}
                 >
-                  {/* match Step 3 icon style */}
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" fill="white"/>
-                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="white"/>
-                  </svg>
+                  <span role="img" aria-label="Create Image">🌄</span>
                 </button>
+                {/* Icon CTA: Continue story */}
                 <button
                   onClick={handleSubmitContinuation}
+                  title="Submit and continue the story"
+                  aria-label="Submit and continue the story"
+                  disabled={!continuationInput.trim()}
                   style={{
-                    minWidth: 120,
+                    width: 44,
                     height: 44,
-                    borderRadius: 9999,
-                    background: 'linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%)',
+                    borderRadius: '50%',
+                    background: continuationInput.trim() ? 'linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%)' : '#9ca3af',
                     color: '#111827',
                     border: '1px solid rgba(255,255,255,0.6)',
-                    cursor: 'pointer',
+                    cursor: continuationInput.trim() ? 'pointer' : 'not-allowed',
                     fontWeight: 800,
                     boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
                   }}
                 >
-                  Submit
+                  ➤
                 </button>
               </div>
             )}

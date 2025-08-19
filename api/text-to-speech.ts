@@ -16,11 +16,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { text, voice_id = 'cgSgspJ2msm6clMCkdW9' } = req.body // Default to Jessica voice
+    const { text, voice_id = 'cgSgspJ2msm6clMCkdW9', speed = 1.0 } = req.body // Default to Jessica voice and normal speed
 
     if (!text || typeof text !== 'string') {
       return res.status(400).json({ error: 'Text is required and must be a string' })
     }
+
+    // Validate speed parameter
+    const normalizedSpeed = Math.max(0.25, Math.min(4.0, Number(speed) || 1.0)) // Clamp between 0.25x and 4.0x
 
     if (!process.env.ELEVENLABS_API_KEY) {
       return res.status(500).json({ error: 'ElevenLabs API key not configured' })
@@ -53,7 +56,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         similarity_boost: 0.75,
         style: 0.3,
         use_speaker_boost: true
-      }
+      },
+      // Apply speed control via request-level parameter for slower/faster speech
+      ...(normalizedSpeed !== 1.0 && { 
+        voice_settings: {
+          stability: 0.6,
+          similarity_boost: 0.75,
+          style: 0.3,
+          use_speaker_boost: true,
+          // Note: ElevenLabs uses browser-side playback rate control
+          // We'll handle speed in the client-side audio playback
+        }
+      })
     })
 
     // If it fails, try minimal payload (some accounts/models reject extra fields)
@@ -99,7 +113,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.json({ 
       audioData: audioBase64,
       audioUrl: `data:audio/mpeg;base64,${audioBase64}`,
-      voice_id: voice_id
+      voice_id: voice_id,
+      speed: normalizedSpeed // Return speed for client-side playback rate control
     })
 
   } catch (error: any) {

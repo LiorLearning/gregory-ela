@@ -2,9 +2,14 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { ChatPanel } from './ChatPanel';
 import { ImagePanel } from './ImagePanel';
 import { QuestionPanel } from './QuestionPanel';
+import { LandingPage } from './LandingPage';
 import { Button } from './components/Button';
 
 export function App(): JSX.Element {
+  // Landing page state
+  const [showLandingPage, setShowLandingPage] = useState(true);
+  const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
+
   // Practice loop state (placeholder assets, no DALL·E)
   const [chapter, setChapter] = useState<1 | 2>(1);
   const [progress, setProgress] = useState(0); // 0..3
@@ -73,6 +78,19 @@ export function App(): JSX.Element {
     }
   }, [imageUrl, showWin, startChapter, chapterImages, progress]);
 
+  // Landing page handlers
+  const handleSelectStory = useCallback((storyId: string) => {
+    console.log('Selected story:', storyId);
+    setSelectedStoryId(storyId);
+    setShowLandingPage(false);
+  }, []);
+
+  const handleCreateNewStory = useCallback(() => {
+    console.log('Creating new story');
+    setSelectedStoryId('new-story');
+    setShowLandingPage(false);
+  }, []);
+
   function onAnswer(): void {
     const q = questions[questionIndex];
     if (!q) return;
@@ -112,6 +130,16 @@ export function App(): JSX.Element {
       });
       setSelected(null);
     }
+  }
+
+  // Show landing page first
+  if (showLandingPage) {
+    return (
+      <LandingPage 
+        onSelectStory={handleSelectStory}
+        onCreateNewStory={handleCreateNewStory}
+      />
+    );
   }
 
   return (

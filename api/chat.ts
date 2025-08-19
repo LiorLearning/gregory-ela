@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { messages } = req.body
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'chatgpt-4o-latest',
       messages,
       temperature: 0.7,
     })
