@@ -69,7 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           messages: [
             {
               role: "system",
-              content: "You are a content safety assistant for epic magical bakery adventure content. Your job is to make prompts safe for children aged 8-14 while keeping them COOL, EXCITING, and EPIC - never childish or babyish. Replace inappropriate content with awesome alternatives that kids think are amazing. Transform: weapons→magical baking tools/enchanted utensils, violence→heroic baking challenges, scary monsters→awesome magical creatures, destruction→spectacular magical effects. Focus on magical baking adventures, enchanted creatures, whimsical bakery settings, and friendship exploration. Strictly prohibit any nudity, sexual content, suggestive clothing, romantic posing, kissing, or adult themes; characters must be fully modest and age-appropriate. Keep it cinematic, dramatic, and thrilling. Return ONLY the sanitized prompt, nothing else."
+              content: "You are a content safety assistant for epic mystical forest adventure content. Your job is to make prompts safe for children aged 8-14 while keeping them COOL, EXCITING, and EPIC - never childish or babyish. Replace inappropriate content with awesome alternatives that kids think are amazing. Transform: weapons→magical forest tools/enchanted nature items, violence→heroic woodland challenges, scary monsters→awesome mystical creatures, destruction→spectacular magical effects. Focus on mystical forest adventures, magical creatures, enchanted woodland settings, family bonds, and trust in animals. Strictly prohibit any nudity, sexual content, suggestive clothing, romantic posing, kissing, or adult themes; characters must be fully modest and age-appropriate. Keep it cinematic, dramatic, and thrilling. Return ONLY the sanitized prompt, nothing else."
             },
             {
               role: "user",
@@ -81,7 +81,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         })
 
         const sanitizedPrompt = sanitizationResponse.choices[0]?.message?.content?.trim() || prompt
-        const sanitizedEnhancedPrompt = `Create an epic, high-quality image: ${sanitizedPrompt}. Style: dynamic and cinematic with vivid colors, dramatic lighting, and amazing magical details. Make it look awesome and thrilling - the kind of image kids would want as their wallpaper. Keep all content completely family-friendly with no nudity, sexual content, or inappropriate material whatsoever. Focus on magical baking adventures, enchanted creatures, whimsical bakery settings, heroism, friendship, and epic magical baking moments. Strictly avoid text on the images.`
+        const sanitizedEnhancedPrompt = `Create an epic, high-quality image: ${sanitizedPrompt}. Style: dynamic and cinematic with vivid colors, dramatic lighting, and amazing mystical details. Make it look awesome and thrilling - the kind of image kids would want as their wallpaper. Keep all content completely family-friendly with no nudity, sexual content, or inappropriate material whatsoever. Focus on mystical forest adventures, magical creatures, enchanted woodland settings, family bonds, trust in animals, and epic mystical forest moments. Strictly avoid text on the images.`
 
         // Try again with sanitized prompt
         const retryResponse = await openai.images.generate({

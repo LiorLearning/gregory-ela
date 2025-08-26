@@ -3,10 +3,10 @@ import { BlendingQuestion, SpeechQuestion, Question } from './types';
 export const blendingQuestions: BlendingQuestion[] = [
   {
     id: 1,
-    word: 'London',
-    imageUrl: '✨💖',
-    phonemes: ['L', 'o', 'n', 'd', 'o', 'n'],
-    explanation: "Blend the sounds L-o-n-d-o-n to make 'London'!",
+    word: 'Irene',
+    imageUrl: '🌲🐾',
+    phonemes: ['I', 'r', 'e', 'n', 'e'],
+    explanation: "Blend the sounds I-r-e-n-e to make 'Irene'!",
   },
 ];
 
@@ -14,134 +14,118 @@ export const speechQuestions: SpeechQuestion[] = [
   {
     id: 1,
     text:
-      "London discovered a big magical mixing bowl in the enchanted bakery. She picked it up and gave it a quick mix to activate its sparkles. The bowl made a loud ding that echoed through the magical bakery.",
-    imageUrl: '✨🧁💖',
-    expectedWords: ['big', 'mix', 'quick'],
-    explanation: 'Great job! You found all the short i CVC words in London\'s magical bakery adventure.',
+      "Mia found a hot pot in the mystical forest. The pot had a big log floating on top.",
+    imageUrl: '🌲🍄',
+    expectedWords: ['hot', 'pot'],
+    explanation: 'Great job! You found the short vowel words in Mia\'s mystical forest adventure.',
   },
 ];
 
 export const longAQuestions: Question[] = [
-  // Step 2 changed from sorting to fill-in-the-blank per FLOSS rule
+  // Step 2 - short o CVC fill-in-the-blank
   {
     id: 1,
-    word: 'fluff',
-    imageUrl: '🧁✨',
+    word: 'jog',
+    imageUrl: '🏃✨',
     isFillBlank: true,
-    fillBlankPattern: 'fl__f',
-    correctAnswer: 'fluff',
-    explanation: 'Sprinkle Beast\'s whipped cream hair is so soft and fluffy—finish the word!',
+    fillBlankPattern: 'j__',
+    correctAnswer: 'jog',
+    explanation: 'Mia jogs through the mystical forest—finish the word!',
     aiHook: {
-      targetWord: 'fluff',
+      targetWord: 'jog',
       intent: 'spelling',
-      baseLine: 'London watches Sprinkle Beast the giant cupcake monster fluff up his whipped cream hair as magical sparkles swirl around the enchanted bakery.',
-      questionLine: 'Listen and fill in the missing letters for something soft and puffy (FLOSS rule with double f).',
-      validationWord: 'fluff',
-      imagePrompt: 'London in her sparkly star dress watching Sprinkle Beast the giant cupcake monster with incredibly FLUFFY whipped cream hair in the enchanted bakery, magical sparkles floating around, soft puffy clouds of whipped cream, rainbow frosting shelves; clearly shows the concept of fluff and softness.'
+      baseLine: 'Mia jogs quietly through the mystical forest, her forest-green cloak flowing as she follows Shadow deeper into the woodland.',
+      questionLine: 'Listen and fill in the missing letters for when you run slowly (short o sound).',
+      validationWord: 'jog',
+      imagePrompt: 'Mia in her forest-green cloak jogging through the mystical forest, running with purpose among glowing mushrooms and whispering trees, clearly showing the action of jogging.'
     }
   },
-  // Step 3 fill-in-the-blank
+  // Step 3 - short o CVC fill-in-the-blank
   {
     id: 2,
-    word: 'jazz',
-    imageUrl: '🎶✨',
+    word: 'dog',
+    imageUrl: '🐕✨',
     isFillBlank: true,
-    fillBlankPattern: 'ja__',
-    correctAnswer: 'jazz',
-    explanation: 'The mixer hums a jazzy beat—complete the word you hear!',
+    fillBlankPattern: 'd__',
+    correctAnswer: 'dog',
+    explanation: 'Shadow the mysterious dog appears in the forest—complete the word you hear!',
     aiHook: {
-      targetWord: 'jazz',
+      targetWord: 'dog',
       intent: 'spelling',
-      baseLine: 'London listens as the magical mixer creates a rhythmic jazzy beat that echoes through the enchanted bakery, making all the ingredients dance.',
-      questionLine: 'Listen and fill in the missing letters for a musical style with rhythm (FLOSS rule with double z).',
-      validationWord: 'jazz',
-      imagePrompt: 'London in her sparkly star dress listening to a magical mixer creating JAZZ music with musical notes floating around the enchanted bakery, ingredients dancing to the beat, rhythmic sparkles; clearly shows jazz music and rhythm.'
+      baseLine: 'Shadow, the mysterious black dog with glowing eyes, appears beside Mia in the mystical forest, wagging its tail and guiding her toward hidden secrets.',
+      questionLine: 'Listen and fill in the missing letters for a furry friend that barks (short o sound).',
+      validationWord: 'dog',
+      imagePrompt: 'Mia in her forest-green cloak with Shadow the mysterious black DOG with glowing eyes in the mystical forest, the dog is wagging its tail, magical atmosphere with glowing mushrooms and whispering trees; clearly shows a dog.'
     }
   },
-  // Step 4 fill-in-the-blank
+  // Step 4 - short o CVC fill-in-the-blank
   {
     id: 3,
-    word: 'shell',
-    imageUrl: '🥚✨',
+    word: 'mop',
+    imageUrl: '🧽✨',
     isFillBlank: true,
-    fillBlankPattern: 'she__',
-    correctAnswer: 'shell',
-    explanation: 'London cracks an eggshell over the glowing bowl—fill in the missing letters!',
+    fillBlankPattern: 'm__',
+    correctAnswer: 'mop',
+    explanation: 'Mia uses a bundle of moss to clean up—fill in the missing letters!',
     aiHook: {
-      targetWord: 'shell',
+      targetWord: 'mop',
       intent: 'spelling',
-      baseLine: 'London carefully cracks a magical golden eggshell over the glowing mixing bowl, watching the sparkly contents pour into her special recipe.',
-      questionLine: 'Listen and fill in the missing letters for the hard outer covering of an egg (FLOSS rule with double l).',
-      validationWord: 'shell',
-      imagePrompt: 'London in her sparkly star dress cracking a magical golden EGGSHELL over a glowing mixing bowl in the enchanted bakery, sparkly egg contents flowing out, magical golden light; clearly shows the eggshell being cracked.'
+      baseLine: 'Mia picks up a soft bundle of forest moss to clean up the magical pollen that scattered across the woodland clearing.',
+      questionLine: 'Listen and fill in the missing letters for what you use to clean the floor (short o sound).',
+      validationWord: 'mop',
+      imagePrompt: 'Mia in her forest-green cloak holding a natural MOP made of forest moss in the mystical woodland clearing, cleaning magical pollen from the ground, glowing mushrooms around; clearly shows a mop being used.'
     }
   },
 ];
 
 export const questions: Question[] = [
-  // Steps 7–10 updated to FLOSS-rule spelling words
+  // Steps 7–9 updated to short o CVC spelling words (step 10 removed)
   {
     id: 1,
-    word: 'buzz',
-    imageUrl: '🔔✨',
+    word: 'log',
+    imageUrl: '🪵✨',
     isSpelling: true,
-    correctAnswer: 'buzz',
-    explanation: 'The magical ovens buzz when a recipe is ready. Spell the word.',
+    correctAnswer: 'log',
+    explanation: 'Mia finds a magical log for the forest clearing. Spell the word.',
     aiHook: {
-      targetWord: 'buzz',
+      targetWord: 'log',
       intent: 'spelling',
-      baseLine: 'London hears the magical ovens buzz with excitement as her recipe reaches the perfect temperature, filling the enchanted bakery with melodic humming.',
-      questionLine: 'Listen and spell the word for the sound a bee makes or when something vibrates (FLOSS rule with double z).',
-      validationWord: 'buzz',
-      imagePrompt: 'London in her sparkly star dress standing near magical ovens that are BUZZING with golden energy in the enchanted bakery, sound waves and sparkles emanating from the ovens, her blonde sidekick nearby; clearly shows the buzzing ovens.'
+      baseLine: 'Mia discovers a magical glowing log that will create warmth in the forest clearing, making their woodland home cozy for her sister and the boy protector.',
+      questionLine: 'Listen and spell the word for a piece of wood (short o sound).',
+      validationWord: 'log',
+      imagePrompt: 'Mia in her forest-green cloak holding a magical glowing LOG near a forest clearing with glowing mushrooms, warm golden light emanating from the log, mystical woodland atmosphere; clearly shows a log.'
     }
   },
   {
     id: 2,
-    word: 'fizz',
-    imageUrl: '🧪✨',
+    word: 'pot',
+    imageUrl: '🦄✨',
     isSpelling: true,
-    correctAnswer: 'fizz',
-    explanation: 'A sparkly potion fizzes in the mixing jar. Spell the word.',
+    correctAnswer: 'pot',
+    explanation: 'A magical forest pot bubbles with herbal brew. Spell the word.',
     aiHook: {
-      targetWord: 'fizz',
+      targetWord: 'pot',
       intent: 'spelling',
-      baseLine: 'London watches a sparkly magical potion fizz and bubble in her crystal mixing jar, creating rainbow bubbles that float around the enchanted bakery.',
-      questionLine: 'Listen and spell the word for when bubbles form and pop in a drink (FLOSS rule with double z).',
-      validationWord: 'fizz',
-      imagePrompt: 'London in her sparkly star dress watching a magical potion FIZZING with colorful bubbles in a crystal jar in the enchanted bakery, rainbow bubbles floating around, sparkling liquid; clearly shows the fizzing potion.'
+      baseLine: 'Mia stirs a magical forest pot that bubbles with glowing herbal brew, filling the woodland clearing with mystical aromas.',
+      questionLine: 'Listen and spell the word for what you cook soup in (short o sound).',
+      validationWord: 'pot',
+      imagePrompt: 'Mia in her forest-green cloak stirring a magical cooking POT with bubbling herbal brew in the mystical forest clearing, glowing steam and magical sparkles rising from the pot; clearly shows a cooking pot.'
     }
   },
   {
     id: 3,
-    word: 'spill',
-    imageUrl: '🍬✨',
+    word: 'hop',
+    imageUrl: '🐰✨',
     isSpelling: true,
-    correctAnswer: 'spill',
-    explanation: 'Uh-oh! A sprinkle spill slides across the counter. Spell the word.',
+    correctAnswer: 'hop',
+    explanation: 'The forest rabbits love to hop around the clearing. Spell the word.',
     aiHook: {
-      targetWord: 'spill',
+      targetWord: 'hop',
       intent: 'spelling',
-      baseLine: 'London gasps as colorful sprinkles spill across the magical counter, creating a rainbow cascade that sparkles as it slides toward the edge.',
-      questionLine: 'Listen and spell the word for when liquid or small things fall and spread out (FLOSS rule with double l).',
-      validationWord: 'spill',
-      imagePrompt: 'London in her sparkly star dress looking at colorful sprinkles SPILLING across a magical counter in the enchanted bakery, rainbow cascade of sprinkles flowing, surprised expression; clearly shows the spilling sprinkles.'
-    }
-  },
-  {
-    id: 4,
-    word: 'staff',
-    imageUrl: '🔮✨',
-    isSpelling: true,
-    correctAnswer: 'staff',
-    explanation: 'London lifts a glowing baking staff to calm the frosting storm. Spell the word.',
-    aiHook: {
-      targetWord: 'staff',
-      intent: 'spelling',
-      baseLine: 'London lifts her magical glowing baking staff high above her head, sending calming sparkles into the wild frosting storm that swirls around the enchanted bakery.',
-      questionLine: 'Listen and spell the word for a long stick used by wizards or bakers (FLOSS rule with double f).',
-      validationWord: 'staff',
-      imagePrompt: 'London in her sparkly star dress holding a magical glowing baking STAFF above her head in the enchanted bakery, calming a frosting storm with sparkles emanating from the staff, dramatic magical scene; clearly shows the magical staff.'
+      baseLine: 'Mia smiles as the magical forest rabbits hop playfully around the woodland clearing, making the soft moss bounce with each gentle jump.',
+      questionLine: 'Listen and spell the word for jumping on one foot (short o sound).',
+      validationWord: 'hop',
+      imagePrompt: 'Mia in her forest-green cloak watching magical forest rabbits HOPPING around the mystical woodland clearing, bouncing with joy among glowing mushrooms, magical sparkles flying with each hop; clearly shows hopping movement.'
     }
   },
 ];

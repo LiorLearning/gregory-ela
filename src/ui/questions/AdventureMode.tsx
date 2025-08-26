@@ -17,7 +17,7 @@ export function AdventureMode({ onAdventureMessage, onStoryUpdate, adventureMess
   const { state: storyState, appendMessage: appendStoryMessage, reset: resetStory, consumePendingAdventureChat, setMetadata } = useStory();
   // Use parent-provided messages or default/local persisted
   const defaultMessages: Array<{ role: 'ai' | 'student'; text: string; isImage?: boolean; isLoading?: boolean; imageUrl?: string }> = [
-    { role: 'ai' as const, text: "✨🧁 London! I'm so excited to continue our magical bakery adventure! You and your blonde sidekick just finished 'Cupcake Day' with Sprinkle Beast's amazing help, survived those wild frosting storms, and rode the whipped cream waves! 🌊✨ What magical baking challenge should we tackle next in our enchanted bakery?" }
+    { role: 'ai' as const, text: "🌲✨ Irene! I'm Shadow, your mysterious guide, and I'm so excited to continue our mystical forest adventure! You and Mia just discovered the hidden clearing where your sister waits, surrounded by glowing mushrooms and watching animals! 🐾🍄 What forest mystery should we explore next in our enchanted woodland?" }
   ];
   const [localAdventureMessages, setLocalAdventureMessages] = useState<Array<{ role: 'ai' | 'student'; text: string; isImage?: boolean; isLoading?: boolean; imageUrl?: string }>>(
     (storyState?.adventureMessages?.length ?? 0) > 0
@@ -58,14 +58,14 @@ export function AdventureMode({ onAdventureMessage, onStoryUpdate, adventureMess
     setting?: string;
     recentEvent?: string;
   }>({
-    type: 'magical enchanted bakery adventure with baking magic, whimsical creatures, and culinary exploration',
-    protagonist: 'London (teenage girl with blonde hair, wearing sparkly star and heart dresses, cheerful and imaginative; passionate about baking and fantasy adventures)',
-    sidekick: 'Another blonde-haired teenage girl (same age as London, also in star/heart dresses; best friend and baking companion)',
-    teammates: 'Sprinkle Beast (giant cupcake monster with whipped cream hair and sprinkle eyes), red-hat skydiver brother (rescuer with a net who helps when things get chaotic)',
-    setting: 'A magical enchanted bakery where ovens glow with mystical energy, frosting storms brew in the sky, rainbow frosting shelves sparkle, spatulas swirl in mid-air, and gumdrop trails lead to mysterious places. There\'s also an upstairs lab hidden behind frosting levers.',
-    goal: 'maintain harmony in the magical bakery, master baking magic, solve word puzzles, and create the most amazing magical treats',
-    villain: 'Chaotic magical forces (wild frosting storms, mischievous singing cupcakes, tricky gumdrop traps) that threaten to disrupt the bakery\'s magical harmony',
-    recentEvent: 'London and her blonde sidekick successfully completed "Cupcake Day" with Sprinkle Beast\'s help! They survived dangerous frosting storms, rode exciting whipped cream waves, solved challenging word puzzles, and encountered a mysterious magical oven that glowed bright red. Now they\'re preparing for "Cake Day" tomorrow - an even bigger, more dazzling magical challenge!'
+    type: 'mystical forest adventure with hidden secrets, magical creatures, and family bonds',
+    protagonist: 'Mia (curious girl with wide eyes and a forest-green cloak, cautious and a little fearful, especially of shadows; often wandering through woods)',
+    sidekick: 'Shadow (mysterious black dog with glowing eyes, at first feared as just a shadow, but turns out to be Mia\'s loyal guide and protector)',
+    teammates: 'Mia\'s Sister (gentle and connected to the secret world of animals, hidden away in the forest), The Boy Protector (quiet, brave boy who has secretly been keeping Mia\'s sister safe all along)',
+    setting: 'A mystical forest full of hidden mushrooms, glowing plants, and whispering animals. Shadows play tricks, making it hard to tell what\'s real. A small hidden forest clearing serves as a secret home, ringed with mushrooms, soft moss, and wooden shelters built by the boy protector.',
+    goal: 'uncover forest mysteries, build trust with magical creatures, reunite with lost family, and overcome fears of shadows and the unknown',
+    villain: 'The mystery of shadows and secrets in the forest that keep the sisters apart - not a single villain, but the main threat of confusion, fear, and hidden truths',
+    recentEvent: 'Mia has discovered the truth about Shadow the dog and learned she has a sister she never knew about! With the boy protector\'s help, she\'s finally reunited with her sister in the forest clearing, surrounded by glowing mushrooms and watching animals. Now they must learn to trust each other and explore the deeper mysteries of their enchanted woodland home.'
   });
   const ADVENTURE_IMAGE_OVERLAY_OPACITY = 0.45;
   const adventureScrollRef = useRef<HTMLDivElement | null>(null);
@@ -153,7 +153,7 @@ export function AdventureMode({ onAdventureMessage, onStoryUpdate, adventureMess
     const lowerAI = aiResponse.toLowerCase();
     
     // Check for interest-based adventure selection
-    const interests = ['baking', 'magic', 'fantasy', 'cupcakes', 'adventure', 'friendship', 'magical', 'enchanted', 'cooking', 'whimsical', 'sparkly', 'rainbow'];
+    const interests = ['forest', 'animals', 'mystery', 'shadows', 'adventure', 'friendship', 'magical', 'enchanted', 'mystical', 'woodland', 'nature', 'secrets'];
     const selectedInterest = interests.find(interest => lowerUser.includes(interest));
     
     if (selectedInterest && adventureState === 'new') {
@@ -488,7 +488,7 @@ export function AdventureMode({ onAdventureMessage, onStoryUpdate, adventureMess
       
       // Adventure-specific visual requests
       /(magical|enchanted|mystical|fantasy).*scene/i,
-      /(bakery|kitchen|oven|cupcake).*scene/i,
+      /(forest|woodland|clearing|mushroom).*scene/i,
       /adventure.*scene/i,
       
       // Drawing/art requests
@@ -551,11 +551,11 @@ Adventure State: ${adventureState === 'new' ? 'NEW_ADVENTURE' : adventureState =
 
 Current Adventure Context: ${JSON.stringify(currentAdventure)}${storyEventsContext}
 
-Student Profile (London): Loves baking, K-pop, fantasy/demon hunter themes, fun dress-up, magical adventures, and whimsical storytelling. Passionate about enchanted bakery adventures and cupcake monster companions. Prefers realistic art with vivid magical details, enchanted bakery environments, glowing fantasy landscapes, and sparkly lighting. Enjoys magical baking adventures with enchanted creatures, recipe exploration, and epic friendship teamwork.
+Student Profile (Irene): Loves forests, animals, and mystery themes. Passionate about mystical forest adventures with magical creatures and family bonds. Prefers realistic art with fantasy touches - magical forests, glowing mushrooms, lifelike animals, and soft light and shadow effects. Enjoys themes of courage, family bonds, and trust in animals. Interested in exploring woodland mysteries and overcoming fears.
 
 Character Creation: When creating sidekicks/characters, let me choose names with suggestions, offer trait lists (funny, optimistic, resilient, etc.), and ask me to describe appearance for image creation.
 
-Remember: I'm your loyal companion - speak as "I" and refer to the student as "you" or London. Always end with excitement and either a cliffhanger or a single engaging question. Keep responses thrilling and magical to match London's interests in baking adventures, enchanted creatures, and epic friendship teamwork in magical settings.`
+Remember: I'm Shadow, your loyal companion and guide - speak as "I" and refer to the student as "you" or Irene. Always end with excitement and either a cliffhanger or a single engaging question. Keep responses thrilling and mysterious to match Irene's interests in forest adventures, magical creatures, family bonds, and woodland mysteries.`
         },
         ...currentMessages
           .slice(-30)
@@ -569,7 +569,7 @@ Remember: I'm your loyal companion - speak as "I" and refer to the student as "y
       });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
-      const aiReply = data.reply || 'That sounds like an amazing adventure! What happens next?';
+      const aiReply = data.reply || 'That sounds like an amazing forest mystery! What happens next?';
       updateAdventureMessages(prev => {
         const newMessages = [...prev];
         const loadingIndex = newMessages.findIndex(m => m.isLoading);
@@ -592,13 +592,13 @@ Remember: I'm your loyal companion - speak as "I" and refer to the student as "y
         if (loadingIndex !== -1) {
           newMessages[loadingIndex] = {
             role: 'ai',
-            text: 'Wow, that sounds like an exciting adventure! ✨ Tell me more about what London should do next!',
+            text: 'Wow, that sounds like an exciting forest adventure! 🌲 Tell me more about what Mia should discover next!',
             isLoading: false
           } as any;
         }
         return newMessages;
       });
-      appendStoryMessage({ role: 'ai', text: 'Wow, that sounds like an exciting adventure! ✨ Tell me more about what London should do next!' });
+      appendStoryMessage({ role: 'ai', text: 'Wow, that sounds like an exciting forest adventure! 🌲 Tell me more about what Mia should discover next!' });
     }
   };
 
@@ -757,7 +757,7 @@ Remember: I'm your loyal companion - speak as "I" and refer to the student as "y
                           {/* Quick adventure options - show when starting new adventure */}
             {adventureState === 'new' && adventureMessages.length <= 2 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12, justifyContent: 'center' }}>
-                {['🧁 Magical Baking', '✨ Enchanted Cooking', '🌈 Rainbow Treats', '🧚 Fantasy Adventures', '💖 Friendship Magic', '🎪 Whimsical Worlds'].map((option) => (
+                {['🌲 Forest Mysteries', '🐾 Animal Friends', '🍄 Magical Mushrooms', '🌙 Shadow Secrets', '💚 Family Bonds', '✨ Woodland Magic'].map((option) => (
                   <button key={option} onClick={() => {
                     stopMicAndResetInput();
                     const interest = option.split(' ')[1]?.toLowerCase() || option.toLowerCase();
@@ -793,7 +793,7 @@ Remember: I'm your loyal companion - speak as "I" and refer to the student as "y
                     stopMicAndResetInput();
                     setAdventureState('new');
                     setCurrentAdventure({});
-                    const greeting = "✨ Hey there, London! I'm your loyal sidekick, ready for an epic magical baking quest! What kind of adventure gets you excited - enchanted cupcakes, magical friendship, rainbow treats, or something totally different? Let's create an amazing magical bakery story together! 🧁🌟";
+                    const greeting = "🌲 Hey there, Irene! I'm Shadow, your mysterious guide, ready for an epic mystical forest quest! What kind of adventure gets you excited - forest mysteries, magical creatures, family secrets, or something totally different? Let's explore the enchanted woodland together! 🐾✨";
                     updateAdventureMessages(prev => [...prev, { role: 'ai', text: greeting }]);
                     appendStoryMessage({ role: 'ai', text: greeting });
                   }} aria-label="New Adventure" style={{ width: 32, height: 32, borderRadius: 16, border: '2px solid rgba(245,158,11,0.3)', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }} title="Start a new adventure">🎪</button>

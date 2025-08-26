@@ -18,8 +18,8 @@ export function QuestionPanel({ onComplete }: Props): JSX.Element {
   // Blending question data (first question) - COMMENTED OUT FOR NOW
   const blendingQuestions: BlendingQuestion[] = []; // blendingQuestionsData;
 
-  // Speech question data
-  const speechQuestions: SpeechQuestion[] = speechQuestionsData;
+  // Speech question data - DISABLED FOR NOW
+  const speechQuestions: SpeechQuestion[] = []; // speechQuestionsData;
 
   // Long A question data  
   const longAQuestions: Question[] = longAQuestionsData;
@@ -177,9 +177,9 @@ Give a brief, friendly response that nudges them without giving the answer.`;
     const lowerTranscript = transcript.toLowerCase();
     const expectedWords = currentSpeechQuestion.expectedWords || [];
     
-    // Check if at least 3 out of 5 expected words are present, or 60% of the words
+    // For 2 words, require both words. For more words, require at least 60% with minimum of 2
     const foundWords = expectedWords.filter(word => lowerTranscript.includes(word.toLowerCase()));
-    const requiredWords = Math.max(3, Math.ceil(expectedWords.length * 0.6));
+    const requiredWords = expectedWords.length === 2 ? 2 : Math.max(2, Math.ceil(expectedWords.length * 0.6));
     
     console.log('🎯 Speech success check:', {
       transcript: lowerTranscript,
@@ -276,8 +276,8 @@ Give a brief, friendly response that nudges them without giving the answer.`;
   const hookTargetWord = aiCfg?.targetWord || (isSecondRegularStep ? 'map' : (isFirstRegularStep ? 'path' : (currentRegularQuestion?.word || currentLongAQuestion?.word || '')));
   const hookQuestionLine = aiCfg?.questionLine || (isFirstRegularStep ? 'Listen and type the word' : 'Listen and type the word');
   const hookBaseLine = aiCfg?.baseLine || (isFirstRegularStep
-    ? 'With baking wisdom gained, London moves deeper into the magical bakery paths.'
-    : 'The bakery whispers with ancient recipes as London continues her quest through the enchanted kitchen.');
+    ? 'With forest wisdom gained, Mia moves deeper into the mystical woodland paths.'
+    : 'The forest whispers with ancient secrets as Mia continues her quest through the enchanted clearing.');
   const hookValidationWord = aiCfg?.validationWord || (isSecondRegularStep ? 'map' : (isFirstRegularStep ? 'path' : (currentLongAQuestion?.word || 'word')));
   const hookIntent = aiCfg?.intent || (isFirstRegularStep ? 'spelling' : 'spelling');
 
@@ -835,28 +835,23 @@ Write one friendly nudge and then three natural-looking variants of the same wor
         const messages = [
           {
             role: 'system',
-            content: `You write Kindergarten read-aloud micro-passages that are fun, playful, and tightly tied to the child’s ongoing adventure. Your success lies in keeping the passage at the right difficulty level while also contextualising it perfectly to the adventure to keep it coherent and interesting.
+            content: `You write Kindergarten read-aloud micro-passages that are fun, playful, and tightly tied to the child's ongoing adventure. Your success lies in keeping the passage at the right difficulty level while also contextualising it perfectly to the adventure to keep it coherent and interesting.
 
-Inputs you may reference:
-- Story snippets: the recent adventure turns below
-- Most recent event: the event provided below
-- Use simple aliases for complex names:
-  Wise Guardian → Sparkle; mystical chamber → bakery kitchen; ancient archive → magical recipe book; magical light → glow; knowledge/wisdom → baking wisdom
+Adventure Setting: Mystical forest with Mia (curious girl in forest-green cloak), Shadow (mysterious black dog guide), Mia's sister, and Boy Protector in a hidden clearing with glowing mushrooms and peaceful animals.
 
 Strict rules:
 0) Event anchoring: Build directly on the most recent event; include at least one concrete detail from it. Do not change the location/scene or introduce unrelated new objects.
-1) Audience/decodability: Kindergarten. Mostly CVC and common sight words. Strong CVC focus (short i words). Do not use difficult to speak words like bright etc., since this is a reading exercise for kindergarten students.
-2) Length: EXACTLY 5 lines; each line 5–6 words; total 25–30 words.
-4) Include these target words exactly: "big", "stick", "hit".
-5) Keep it lively.
-6) Name usage: You may use "London," "Sparkle," and "Skydiver Brother." Avoid other proper names.
-8) Clarity: Very short sentences; vary stems (do not repeat the same opening more than twice).
-9) Ending: Finish with a tiny hook / cliffhanger or next step (≤ 6 words), preferably a question.
-10) Output format: Return ONLY the 5 lines separated by newline characters. No titles, labels, or extra text.`
+1) Audience/decodability: Kindergarten. Mostly CVC and common sight words. Strong focus on SHORT O CVC words. Do not use difficult words since this is a reading exercise for kindergarten students.
+2) Length: EXACTLY 2 sentences; total 10-12 words.
+3) Include these target words exactly: "hot", "pot".
+4) Keep it lively and connected to the forest adventure.
+5) Name usage: You may use "Mia," "Shadow," and "sister." Avoid other proper names.
+6) Clarity: Very short, simple sentences appropriate for kindergarten reading level.
+7) Output format: Return ONLY the 2 sentences. No titles, labels, or extra text.`
           },
           {
             role: 'user',
-            content: `Adventure context (most recent last):\n${contextText}\n\nMost recent event to build on:\n${lastEvent}\n\nTarget words to include exactly: red, net, deck.\n\nWrite the passage now following the rules above. Use at least one concrete detail from the most recent event, stay in the same scene, and avoid unrelated new objects or places. Return only the five lines.`
+            content: `Adventure context (most recent last):\n${contextText}\n\nMost recent event to build on:\n${lastEvent}\n\nTarget words to include exactly: hot, pot.\n\nWrite the passage now following the rules above. Use at least one concrete detail from the most recent event, stay in the same scene, and include both target words. Return only the two sentences totaling 10-12 words.`
           }
         ];
 
@@ -936,7 +931,7 @@ Strict rules:
         console.error('Error generating Long A passage:', error);
         if (!cancelled && currentLongAQuestion) {
           // Fallback to base line
-          const fallback = currentLongAQuestion.aiHook?.baseLine || 'A sparkling frosting doorway appears in the bakery wall. London sees magical ingredients floating through the glowing opening.';
+          const fallback = currentLongAQuestion.aiHook?.baseLine || 'A glowing mushroom doorway appears in the forest wall. Mia sees magical creatures floating through the mystical opening.';
           setLongAPassage(fallback);
           setHasGeneratedLongAPassage(true);
           setIsLongAPassageLoading(false);
@@ -1054,8 +1049,8 @@ Strict rules:
         const data = await res.json();
         if (!cancelled) {
           const summary = (data.reply || '').trim() || (isFirstRegularStep
-            ? '"Look! The sparkling bakery paths stretch endlessly," whispers Sparkle. "Here\'s a clue, London: listen and type where we\'re traveling," echoes through the enchanted kitchen.'
-            : '"The bakery whispers with magic," says Sparkle. "Here\'s a clue, London: listen and type the magical word," resonates through the glowing ovens.');
+            ? '"Look! The mystical forest paths stretch endlessly," whispers Shadow. "Here\'s a clue, Irene: listen and type where we\'re traveling," echoes through the enchanted woodland.'
+            : '"The forest whispers with magic," says Shadow. "Here\'s a clue, Irene: listen and type the magical word," resonates through the glowing mushrooms.');
           setAiSummary(summary);
           try { setHookForStep('3', summary); } catch {}
           setHasGeneratedSummary(true);
@@ -1063,8 +1058,8 @@ Strict rules:
       } catch {
         if (!cancelled) {
           setAiSummary(isFirstRegularStep
-            ? '"Look! The sparkling bakery paths stretch endlessly," whispers Sparkle. "Here\'s a clue, London: listen and type where we\'re traveling," echoes through the enchanted kitchen.'
-            : '"The bakery whispers with magic," says Sparkle. "Here\'s a clue, London: listen and type the magical word," resonates through the glowing ovens.');
+            ? '"Look! The mystical forest paths stretch endlessly," whispers Shadow. "Here\'s a clue, Irene: listen and type where we\'re traveling," echoes through the enchanted woodland.'
+            : '"The forest whispers with magic," says Shadow. "Here\'s a clue, Irene: listen and type the magical word," resonates through the glowing mushrooms.');
           setHasGeneratedSummary(true);
         }
       } finally {
@@ -1247,7 +1242,7 @@ Strict rules:
       
       let validationInstructions: string;
       if (isCurrentLongASorting && sortingWords.length > 0) {
-        validationInstructions = `You are London's fun AI companion helping kids write their magical bakery adventure story. Your job is to check if they used one of these sorting words: ${sortingWords.join(', ')} in their sentence and respond naturally like a friendly narrator. 
+        validationInstructions = `You are Irene's fun AI companion helping kids write their mystical forest adventure story. Your job is to check if they used one of these sorting words: ${sortingWords.join(', ')} in their sentence and respond naturally like a friendly narrator. 
 
 Respond as minified JSON: {"status":"valid|invalid|help","message":"<your response>"}
 
@@ -1255,7 +1250,7 @@ RULES:
 - "valid": If ANY of these words (${sortingWords.join(', ')}) appears in any form (case-insensitive) - including within contractions, compound words, or with punctuation. Say something encouraging like "Perfect!" or "Great use of [word they used]!" 
 - "invalid": If they used a completely different word or clearly misspelled it, gently point out what they wrote and what you need. Be specific: "I see you wrote '[their word]' but I need one of these words: ${sortingWords.join(', ')}. Try again!"`;
       } else {
-        validationInstructions = `You are London's fun AI companion helping kids write their magical bakery adventure story. Your job is to check if they used the target word "${hookValidationWord}" in their sentence and respond naturally like a friendly narrator. 
+        validationInstructions = `You are Irene's fun AI companion helping kids write their mystical forest adventure story. Your job is to check if they used the target word "${hookValidationWord}" in their sentence and respond naturally like a friendly narrator. 
 
 Respond as minified JSON: {"status":"valid|invalid|help","message":"<your response>"}
 
@@ -1270,8 +1265,8 @@ RULES:
 
 Be conversational, not scripted. Acknowledge what they actually wrote. Keep responses under 25 words.` },
         { role: 'user', content: isCurrentLongASorting && sortingWords.length > 0 
-          ? `Sentence: ${text}\n\nCurrent story context: ${storyContext.join(' ')}\n\nHelp the child continue London's magical bakery adventure using one of these words: ${sortingWords.join(', ')}.`
-          : `Sentence: ${text}\n\nCurrent story context: ${storyContext.join(' ')}\n\nHelp the child continue London's magical bakery adventure using the word "${hookValidationWord}".` }
+          ? `Sentence: ${text}\n\nCurrent story context: ${storyContext.join(' ')}\n\nHelp the child continue Mia's mystical forest adventure using one of these words: ${sortingWords.join(', ')}.`
+          : `Sentence: ${text}\n\nCurrent story context: ${storyContext.join(' ')}\n\nHelp the child continue Mia's mystical forest adventure using the word "${hookValidationWord}".` }
       ];
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -1367,7 +1362,7 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
       
       if (/help|hint|example|idk|don\'?t know/i.test(text)) {
         if (isCurrentLongASorting && sortingWords.length > 0) {
-          return { status: 'help', message: `No worries! Pick one of these words and tell what London might do: ${sortingWords.join(', ')}` };
+          return { status: 'help', message: `No worries! Pick one of these words and tell what Mia might do: ${sortingWords.join(', ')}` };
         } else {
           return { status: 'help', message: `No worries! What if London's ${hookValidationWord} could help her explore the magical bakery? How might she use it?` };
         }
@@ -3429,7 +3424,7 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                     <textarea
                       value={speechContinuationInput}
                       onChange={(e) => setSpeechContinuationInput(e.target.value)}
-                      placeholder="What happens next in London's adventure?"
+                      placeholder="What happens next in Mia's adventure?"
                       rows={2}
                       style={{
                         width: '100%',
@@ -3583,7 +3578,7 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                   color: '#1f2937',
                   marginBottom: '4.8px'
                 }}>
-                  🎧 Listen to London's word!
+                  🎧 Listen to Mia's word!
                 </div>
                 <div style={{ fontSize: '13px', color: '#6b7280', fontWeight: '500' }}>
                   Type the word you hear.
@@ -4155,7 +4150,7 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                     color: '#1f2937',
                     marginBottom: '4.8px'
                   }}>
-                    🎧 Listen to London's word!
+                    🎧 Listen to Mia's word!
                   </div>
                   <div style={{ fontSize: '14.4px', color: '#6b7280', fontWeight: '500' }}>
                     What sound does it start with?

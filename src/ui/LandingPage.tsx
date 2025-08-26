@@ -36,12 +36,12 @@ export function LandingPage({ onSelectStory, onCreateNewStory }: Props): JSX.Ele
       pages: undefined
     },
     {
-      id: 'london-magical-bakery',
-      title: 'London and the Magical Bakery',
-      author: 'by London, 3rd grade',
+      id: 'two-sisters',
+      title: 'Two Sisters',
+      author: 'by Irene, 2nd grade',
       pages: '10 pages',
       emoji: '✨',
-      imageUrl: 'https://tutor.mathkraft.org/_next/image?url=%2Fapi%2Fproxy%3Furl%3Dhttps%253A%252F%252Fdubeus2fv4wzz.cloudfront.net%252Fimages%252F20250822_192830_image.png&w=3840&q=75&dpl=dpl_2uGXzhZZsLneniBZtsxr7PEabQXN',
+      imageUrl: 'https://tutor.mathkraft.org/_next/image?url=%2Fapi%2Fproxy%3Furl%3Dhttps%253A%252F%252Fd1ptidrpttdm41.cloudfront.net%252Ftestuser4%252F20250826_150624.png&w=3840&q=75&dpl=dpl_2uGXzhZZsLneniBZtsxr7PEabQXN',
       color: 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)',
       isCreateNew: false
     }
@@ -783,7 +783,7 @@ export function LandingPage({ onSelectStory, onCreateNewStory }: Props): JSX.Ele
               fontFamily: 'Quicksand, system-ui, sans-serif',
               textShadow: '0 2px 4px rgba(0,0,0,0.05)'
             }}>
-              📚 Welcome back, London!
+              📚 Welcome back, Irene!
             </h1>
             <div style={{ marginTop: 20 }}>
               <AuthorLevelBadge />
