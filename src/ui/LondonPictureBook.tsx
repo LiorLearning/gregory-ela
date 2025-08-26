@@ -471,7 +471,7 @@ export function LondonPictureBook({ onBack, onNext, onPrevious }: Props): JSX.El
               margin: 0,
               fontFamily: 'Quicksand, system-ui, sans-serif'
             }}>
-              London's World
+              Asher's World
             </h1>
             
             <div style={{ display: 'flex', gap: 16 }}>
@@ -587,7 +587,7 @@ export function LondonPictureBook({ onBack, onNext, onPrevious }: Props): JSX.El
               margin: '0 0 32px 0',
               fontFamily: 'Quicksand, system-ui, sans-serif'
             }}>
-              London and Friends
+              Asher and Friends
             </h2>
             
             <div style={{

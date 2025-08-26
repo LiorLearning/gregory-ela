@@ -299,7 +299,7 @@ export function App(): JSX.Element {
   }
 
   // Show adventure mode for any story (when mode is adventure) or new story creation
-  if ((selectedStoryId === 'london-magical-bakery' && storyMode === 'adventure') || (selectedStoryId === 'captain-asher-time-stranglers' && storyMode === 'adventure') || (selectedStoryId === 'irene-mystical-forest' && storyMode === 'adventure') || (selectedStoryId === 'two-sisters' && storyMode === 'adventure') || selectedStoryId === 'new-story') {
+  if ((selectedStoryId === 'london-magical-bakery' && storyMode === 'adventure') || (selectedStoryId === 'captain-asher-time-stranglers' && storyMode === 'adventure') || (selectedStoryId === 'irene-mystical-forest' && storyMode === 'adventure') || (selectedStoryId === 'gregory-ipad-kid' && storyMode === 'adventure') || selectedStoryId === 'new-story') {
     return (
       <div style={{
         display: 'grid',

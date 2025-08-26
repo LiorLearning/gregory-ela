@@ -3,10 +3,10 @@ import { BlendingQuestion, SpeechQuestion, Question } from './types';
 export const blendingQuestions: BlendingQuestion[] = [
   {
     id: 1,
-    word: 'Irene',
-    imageUrl: '🌲🐾',
-    phonemes: ['I', 'r', 'e', 'n', 'e'],
-    explanation: "Blend the sounds I-r-e-n-e to make 'Irene'!",
+    word: 'Gregory',
+    imageUrl: '👾⚡',
+    phonemes: ['G', 'r', 'e', 'g', 'o', 'r', 'y'],
+    explanation: "Blend the sounds G-r-e-g-o-r-y to make 'Gregory'!",
   },
 ];
 
@@ -14,118 +14,118 @@ export const speechQuestions: SpeechQuestion[] = [
   {
     id: 1,
     text:
-      "Mia found a hot pot in the mystical forest. The pot had a big log floating on top.",
-    imageUrl: '🌲🍄',
-    expectedWords: ['hot', 'pot'],
-    explanation: 'Great job! You found the short vowel words in Mia\'s mystical forest adventure.',
+      "Gregory found a hot spot in the digital realm. The corrupted code had a big log file floating on top.",
+    imageUrl: '👾💻',
+    expectedWords: ['hot', 'spot'],
+    explanation: 'Great job! You found the short vowel words in Gregory\'s digital corruption adventure.',
   },
 ];
 
 export const longAQuestions: Question[] = [
-  // Step 2 - short o CVC fill-in-the-blank
+  // Step 2 - long a with ai fill-in-the-blank
   {
     id: 1,
-    word: 'jog',
-    imageUrl: '🏃✨',
+    word: 'rain',
+    imageUrl: '🌧️✨',
     isFillBlank: true,
-    fillBlankPattern: 'j__',
-    correctAnswer: 'jog',
-    explanation: 'Mia jogs through the mystical forest—finish the word!',
+    fillBlankPattern: 'r__n',
+    correctAnswer: 'rain',
+    explanation: 'Gregory watches digital rain fall through the corrupted realm—finish the word!',
     aiHook: {
-      targetWord: 'jog',
+      targetWord: 'rain',
       intent: 'spelling',
-      baseLine: 'Mia jogs quietly through the mystical forest, her forest-green cloak flowing as she follows Shadow deeper into the woodland.',
-      questionLine: 'Listen and fill in the missing letters for when you run slowly (short o sound).',
-      validationWord: 'jog',
-      imagePrompt: 'Mia in her forest-green cloak jogging through the mystical forest, running with purpose among glowing mushrooms and whispering trees, clearly showing the action of jogging.'
+      baseLine: 'Gregory stands in the corrupted digital realm as glitched rain falls from the pixelated sky, each droplet sparkling with code fragments.',
+      questionLine: 'Listen and fill in the missing letters for water that falls from the sky (long a sound with ai).',
+      validationWord: 'rain',
+      imagePrompt: 'Gregory in his blue hoodie with glowing runes standing in digital RAIN falling from pixelated sky in the corrupted realm, with glitched raindrops sparkling with code fragments around him; clearly shows rain falling.'
     }
   },
-  // Step 3 - short o CVC fill-in-the-blank
+  // Step 3 - long a with ai fill-in-the-blank  
   {
     id: 2,
-    word: 'dog',
-    imageUrl: '🐕✨',
+    word: 'train',
+    imageUrl: '🚂✨',
     isFillBlank: true,
-    fillBlankPattern: 'd__',
-    correctAnswer: 'dog',
-    explanation: 'Shadow the mysterious dog appears in the forest—complete the word you hear!',
+    fillBlankPattern: 'tr__n',
+    correctAnswer: 'train',
+    explanation: 'A digital train speeds through the glitched landscape—complete the word you hear!',
     aiHook: {
-      targetWord: 'dog',
+      targetWord: 'train',
       intent: 'spelling',
-      baseLine: 'Shadow, the mysterious black dog with glowing eyes, appears beside Mia in the mystical forest, wagging its tail and guiding her toward hidden secrets.',
-      questionLine: 'Listen and fill in the missing letters for a furry friend that barks (short o sound).',
-      validationWord: 'dog',
-      imagePrompt: 'Mia in her forest-green cloak with Shadow the mysterious black DOG with glowing eyes in the mystical forest, the dog is wagging its tail, magical atmosphere with glowing mushrooms and whispering trees; clearly shows a dog.'
+      baseLine: 'A glowing digital train with pixelated steam rushes through the corrupted landscape, its wheels sparking with electrical code as it carries Gregory to his next adventure.',
+      questionLine: 'Listen and fill in the missing letters for what travels on tracks (long a sound with ai).',
+      validationWord: 'train',
+      imagePrompt: 'Gregory in his blue hoodie with glowing runes riding a digital glowing TRAIN with pixelated steam rushing through the corrupted landscape, wheels sparking with electrical code; clearly shows a train on tracks.'
     }
   },
-  // Step 4 - short o CVC fill-in-the-blank
+  // Step 4 - long a with ai fill-in-the-blank
   {
     id: 3,
-    word: 'mop',
-    imageUrl: '🧽✨',
+    word: 'tail',
+    imageUrl: '🦊✨',
     isFillBlank: true,
-    fillBlankPattern: 'm__',
-    correctAnswer: 'mop',
-    explanation: 'Mia uses a bundle of moss to clean up—fill in the missing letters!',
+    fillBlankPattern: 't__l',
+    correctAnswer: 'tail',
+    explanation: 'A digital fox swishes its glowing tail in the virtual forest—fill in the missing letters!',
     aiHook: {
-      targetWord: 'mop',
+      targetWord: 'tail',
       intent: 'spelling',
-      baseLine: 'Mia picks up a soft bundle of forest moss to clean up the magical pollen that scattered across the woodland clearing.',
-      questionLine: 'Listen and fill in the missing letters for what you use to clean the floor (short o sound).',
-      validationWord: 'mop',
-      imagePrompt: 'Mia in her forest-green cloak holding a natural MOP made of forest moss in the mystical woodland clearing, cleaning magical pollen from the ground, glowing mushrooms around; clearly shows a mop being used.'
+      baseLine: 'Gregory encounters a friendly digital fox in the virtual forest, its glowing tail swishing back and forth as pixelated leaves dance around them.',
+      questionLine: 'Listen and fill in the missing letters for what animals wag (long a sound with ai).',
+      validationWord: 'tail',
+      imagePrompt: 'Gregory in his blue hoodie with glowing runes petting a digital fox with a glowing TAIL swishing in the virtual forest, with pixelated leaves dancing around them; clearly shows an animal tail.'
     }
   },
 ];
 
 export const questions: Question[] = [
-  // Steps 7–9 updated to short o CVC spelling words (step 10 removed)
+  // Steps 6-8 updated to long a with ay spelling words
   {
     id: 1,
-    word: 'log',
-    imageUrl: '🪵✨',
+    word: 'play',
+    imageUrl: '🎮✨',
     isSpelling: true,
-    correctAnswer: 'log',
-    explanation: 'Mia finds a magical log for the forest clearing. Spell the word.',
+    correctAnswer: 'play',
+    explanation: 'Gregory enjoys playing digital games in the virtual realm. Spell the word.',
     aiHook: {
-      targetWord: 'log',
+      targetWord: 'play',
       intent: 'spelling',
-      baseLine: 'Mia discovers a magical glowing log that will create warmth in the forest clearing, making their woodland home cozy for her sister and the boy protector.',
-      questionLine: 'Listen and spell the word for a piece of wood (short o sound).',
-      validationWord: 'log',
-      imagePrompt: 'Mia in her forest-green cloak holding a magical glowing LOG near a forest clearing with glowing mushrooms, warm golden light emanating from the log, mystical woodland atmosphere; clearly shows a log.'
+      baseLine: 'Gregory sits at a glowing gaming console in the internet café, playing an exciting digital adventure game that helps him practice his coding skills.',
+      questionLine: 'Listen and spell the word for having fun with games (long a sound with ay).',
+      validationWord: 'play',
+      imagePrompt: 'Gregory in his blue hoodie with glowing runes sitting at a glowing gaming console PLAYING digital games in the internet café, with colorful game graphics and digital effects around him; clearly shows playing/gaming.'
     }
   },
   {
     id: 2,
-    word: 'pot',
-    imageUrl: '🦄✨',
+    word: 'day',
+    imageUrl: '☀️✨',
     isSpelling: true,
-    correctAnswer: 'pot',
-    explanation: 'A magical forest pot bubbles with herbal brew. Spell the word.',
+    correctAnswer: 'day',
+    explanation: 'A new digital day dawns in the corrupted realm with glowing sunshine. Spell the word.',
     aiHook: {
-      targetWord: 'pot',
+      targetWord: 'day',
       intent: 'spelling',
-      baseLine: 'Mia stirs a magical forest pot that bubbles with glowing herbal brew, filling the woodland clearing with mystical aromas.',
-      questionLine: 'Listen and spell the word for what you cook soup in (short o sound).',
-      validationWord: 'pot',
-      imagePrompt: 'Mia in her forest-green cloak stirring a magical cooking POT with bubbling herbal brew in the mystical forest clearing, glowing steam and magical sparkles rising from the pot; clearly shows a cooking pot.'
+      baseLine: 'Gregory watches as a beautiful digital sunrise brings a new day to the corrupted realm, with pixelated sunbeams breaking through the glitched clouds and warming the virtual landscape.',
+      questionLine: 'Listen and spell the word for when the sun is shining (long a sound with ay).',
+      validationWord: 'day',
+      imagePrompt: 'Gregory in his blue hoodie with glowing runes watching a digital sunrise bringing a new DAY to the corrupted realm, with pixelated sunbeams and glitched clouds in the virtual landscape; clearly shows daytime/sunshine.'
     }
   },
   {
     id: 3,
-    word: 'hop',
-    imageUrl: '🐰✨',
+    word: 'way',
+    imageUrl: '🛤️✨',
     isSpelling: true,
-    correctAnswer: 'hop',
-    explanation: 'The forest rabbits love to hop around the clearing. Spell the word.',
+    correctAnswer: 'way',
+    explanation: 'Gregory finds the right path through the digital maze. Spell the word.',
     aiHook: {
-      targetWord: 'hop',
+      targetWord: 'way',
       intent: 'spelling',
-      baseLine: 'Mia smiles as the magical forest rabbits hop playfully around the woodland clearing, making the soft moss bounce with each gentle jump.',
-      questionLine: 'Listen and spell the word for jumping on one foot (short o sound).',
-      validationWord: 'hop',
-      imagePrompt: 'Mia in her forest-green cloak watching magical forest rabbits HOPPING around the mystical woodland clearing, bouncing with joy among glowing mushrooms, magical sparkles flying with each hop; clearly shows hopping movement.'
+      baseLine: 'Gregory discovers a glowing digital pathway that leads through the corrupted maze, with sparkling code fragments lighting the way forward to his next adventure.',
+      questionLine: 'Listen and spell the word for a path or direction (long a sound with ay).',
+      validationWord: 'way',
+      imagePrompt: 'Gregory in his blue hoodie with glowing runes walking on a glowing digital pathway/WAY through a corrupted maze, with sparkling code fragments lighting the path forward; clearly shows a path or way.'
     }
   },
 ];

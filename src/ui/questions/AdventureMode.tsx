@@ -17,7 +17,7 @@ export function AdventureMode({ onAdventureMessage, onStoryUpdate, adventureMess
   const { state: storyState, appendMessage: appendStoryMessage, reset: resetStory, consumePendingAdventureChat, setMetadata } = useStory();
   // Use parent-provided messages or default/local persisted
   const defaultMessages: Array<{ role: 'ai' | 'student'; text: string; isImage?: boolean; isLoading?: boolean; imageUrl?: string }> = [
-    { role: 'ai' as const, text: "🌲✨ Irene! I'm Shadow, your mysterious guide, and I'm so excited to continue our mystical forest adventure! You and Mia just discovered the hidden clearing where your sister waits, surrounded by glowing mushrooms and watching animals! 🐾🍄 What forest mystery should we explore next in our enchanted woodland?" }
+    { role: 'ai' as const, text: "👾✨ Gregory! The mysterious file 'Gregory.exe' is calling to you from the depths of the digital realm! After your victory against the iPad Kid, new glitches are appearing in Enderby, BC. Your Time Cloak flickers with past and future moments as reality warps around you. Ready for Level 2 of your legendary quest? 🌟⚡" }
   ];
   const [localAdventureMessages, setLocalAdventureMessages] = useState<Array<{ role: 'ai' | 'student'; text: string; isImage?: boolean; isLoading?: boolean; imageUrl?: string }>>(
     (storyState?.adventureMessages?.length ?? 0) > 0
@@ -58,14 +58,14 @@ export function AdventureMode({ onAdventureMessage, onStoryUpdate, adventureMess
     setting?: string;
     recentEvent?: string;
   }>({
-    type: 'mystical forest adventure with hidden secrets, magical creatures, and family bonds',
-    protagonist: 'Mia (curious girl with wide eyes and a forest-green cloak, cautious and a little fearful, especially of shadows; often wandering through woods)',
-    sidekick: 'Shadow (mysterious black dog with glowing eyes, at first feared as just a shadow, but turns out to be Mia\'s loyal guide and protector)',
-    teammates: 'Mia\'s Sister (gentle and connected to the secret world of animals, hidden away in the forest), The Boy Protector (quiet, brave boy who has secretly been keeping Mia\'s sister safe all along)',
-    setting: 'A mystical forest full of hidden mushrooms, glowing plants, and whispering animals. Shadows play tricks, making it hard to tell what\'s real. A small hidden forest clearing serves as a secret home, ringed with mushrooms, soft moss, and wooden shelters built by the boy protector.',
-    goal: 'uncover forest mysteries, build trust with magical creatures, reunite with lost family, and overcome fears of shadows and the unknown',
-    villain: 'The mystery of shadows and secrets in the forest that keep the sisters apart - not a single villain, but the main threat of confusion, fear, and hidden truths',
-    recentEvent: 'Mia has discovered the truth about Shadow the dog and learned she has a sister she never knew about! With the boy protector\'s help, she\'s finally reunited with her sister in the forest clearing, surrounded by glowing mushrooms and watching animals. Now they must learn to trust each other and explore the deeper mysteries of their enchanted woodland home.'
+    type: 'digital corruption adventure with time magic, mystical puzzles, and glitchy reality in modern Canada',
+    protagonist: 'Gregory (brave, curious boy with dark spiky hair, blue hoodie with glowing runes, and a Time Cloak that flickers with past and future moments)',
+    sidekick: 'None yet (ready to create with traits and appearance based on Gregory\'s interests in anime, gaming, and mystical adventures)',
+    teammates: 'None yet (can be added in next mission based on Gregory\'s love for anime characters and gaming companions)',
+    setting: 'Real-world Enderby, BC, Canada — but warped by digital corruption and magical glitches. Features include a haunted internet café, cursed lake, and reality that shifts between normal and digital realms with anime-style effects.',
+    goal: 'investigate the mysterious Gregory.exe file, stop digital corruption spreading through Canada, master time magic abilities, and prevent total screen domination',
+    villain: 'The iPad Kid (7-year-old son of the Prime Minister who uses mind-warping brainrot from Minecraft, Fortnite, TikTok to trap kids in digital realm)',
+    recentEvent: 'Gregory bravely entered the digital world, outsmarted the iPad Kid in a corrupted video game dimension called Brainrot Royale, deleted the final boss level, and returned to the real world. But a mysterious file called "Gregory.exe" now beckons him toward a deeper quest as new glitches appear in Enderby.'
   });
   const ADVENTURE_IMAGE_OVERLAY_OPACITY = 0.45;
   const adventureScrollRef = useRef<HTMLDivElement | null>(null);
@@ -153,7 +153,7 @@ export function AdventureMode({ onAdventureMessage, onStoryUpdate, adventureMess
     const lowerAI = aiResponse.toLowerCase();
     
     // Check for interest-based adventure selection
-    const interests = ['forest', 'animals', 'mystery', 'shadows', 'adventure', 'friendship', 'magical', 'enchanted', 'mystical', 'woodland', 'nature', 'secrets'];
+    const interests = ['anime', 'gaming', 'digital', 'time', 'magic', 'glitch', 'pokemon', 'naruto', 'onepiece', 'dragonball', 'smash', 'mystical', 'library', 'corruption', 'canada'];
     const selectedInterest = interests.find(interest => lowerUser.includes(interest));
     
     if (selectedInterest && adventureState === 'new') {
@@ -551,11 +551,11 @@ Adventure State: ${adventureState === 'new' ? 'NEW_ADVENTURE' : adventureState =
 
 Current Adventure Context: ${JSON.stringify(currentAdventure)}${storyEventsContext}
 
-Student Profile (Irene): Loves forests, animals, and mystery themes. Passionate about mystical forest adventures with magical creatures and family bonds. Prefers realistic art with fantasy touches - magical forests, glowing mushrooms, lifelike animals, and soft light and shadow effects. Enjoys themes of courage, family bonds, and trust in animals. Interested in exploring woodland mysteries and overcoming fears.
+Student Profile (Gregory): Loves anime (One Piece, Naruto, Dragon Ball, My Hero Academia, Demon Slayer, Jujutsu Kaisen), Super Smash Bros. Ultimate, Pokémon, mystical library adventures, time magic, and storytelling with dramatic twists. Prefers realistic cartoon-anime fusion art with glowing effects, soft shadows, and dramatic lighting. Enjoys themes of courage, digital corruption mysteries, time magic, and epic battles against villains.
 
-Character Creation: When creating sidekicks/characters, let me choose names with suggestions, offer trait lists (funny, optimistic, resilient, etc.), and ask me to describe appearance for image creation.
+Character Creation: When creating sidekicks/characters, let me choose names with suggestions, offer trait lists (funny, optimistic, resilient, etc.), and ask me to describe appearance for image creation. Consider anime-inspired characters and gaming companions.
 
-Remember: I'm Shadow, your loyal companion and guide - speak as "I" and refer to the student as "you" or Irene. Always end with excitement and either a cliffhanger or a single engaging question. Keep responses thrilling and mysterious to match Irene's interests in forest adventures, magical creatures, family bonds, and woodland mysteries.`
+Remember: I'm your loyal companion and guide in this digital corruption adventure - speak as "I" and refer to the student as "you" or Gregory. Always end with excitement and either a cliffhanger or a single engaging question. Keep responses thrilling and mysterious to match Gregory's interests in anime, gaming, time magic, and digital adventures in corrupted Enderby, BC.`
         },
         ...currentMessages
           .slice(-30)
@@ -592,13 +592,13 @@ Remember: I'm Shadow, your loyal companion and guide - speak as "I" and refer to
         if (loadingIndex !== -1) {
           newMessages[loadingIndex] = {
             role: 'ai',
-            text: 'Wow, that sounds like an exciting forest adventure! 🌲 Tell me more about what Mia should discover next!',
+            text: 'Wow, that sounds like an epic digital adventure! 👾 Tell me more about what Gregory should discover next in the corrupted realm!',
             isLoading: false
           } as any;
         }
         return newMessages;
       });
-      appendStoryMessage({ role: 'ai', text: 'Wow, that sounds like an exciting forest adventure! 🌲 Tell me more about what Mia should discover next!' });
+      appendStoryMessage({ role: 'ai', text: 'Wow, that sounds like an epic digital adventure! 👾 Tell me more about what Gregory should discover next in the corrupted realm!' });
     }
   };
 
@@ -757,7 +757,7 @@ Remember: I'm Shadow, your loyal companion and guide - speak as "I" and refer to
                           {/* Quick adventure options - show when starting new adventure */}
             {adventureState === 'new' && adventureMessages.length <= 2 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12, justifyContent: 'center' }}>
-                {['🌲 Forest Mysteries', '🐾 Animal Friends', '🍄 Magical Mushrooms', '🌙 Shadow Secrets', '💚 Family Bonds', '✨ Woodland Magic'].map((option) => (
+                {['👾 Digital Glitches', '⚡ Time Magic', '🎮 Gaming Powers', '🌟 Anime Heroes', '🔮 Mystical Libraries', '🇨🇦 Enderby Mysteries'].map((option) => (
                   <button key={option} onClick={() => {
                     stopMicAndResetInput();
                     const interest = option.split(' ')[1]?.toLowerCase() || option.toLowerCase();
@@ -793,7 +793,7 @@ Remember: I'm Shadow, your loyal companion and guide - speak as "I" and refer to
                     stopMicAndResetInput();
                     setAdventureState('new');
                     setCurrentAdventure({});
-                    const greeting = "🌲 Hey there, Irene! I'm Shadow, your mysterious guide, ready for an epic mystical forest quest! What kind of adventure gets you excited - forest mysteries, magical creatures, family secrets, or something totally different? Let's explore the enchanted woodland together! 🐾✨";
+                    const greeting = "👾 Hey there, Gregory! Your Time Cloak is flickering with new possibilities! After defeating the iPad Kid, the digital corruption in Enderby, BC is evolving. What kind of Level 2 adventure calls to you - anime-powered quests, time magic mysteries, gaming dimension battles, or something totally epic? Let's unlock your next legendary mission! ⚡🌟";
                     updateAdventureMessages(prev => [...prev, { role: 'ai', text: greeting }]);
                     appendStoryMessage({ role: 'ai', text: greeting });
                   }} aria-label="New Adventure" style={{ width: 32, height: 32, borderRadius: 16, border: '2px solid rgba(245,158,11,0.3)', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }} title="Start a new adventure">🎪</button>

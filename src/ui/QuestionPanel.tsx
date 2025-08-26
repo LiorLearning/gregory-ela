@@ -276,8 +276,8 @@ Give a brief, friendly response that nudges them without giving the answer.`;
   const hookTargetWord = aiCfg?.targetWord || (isSecondRegularStep ? 'map' : (isFirstRegularStep ? 'path' : (currentRegularQuestion?.word || currentLongAQuestion?.word || '')));
   const hookQuestionLine = aiCfg?.questionLine || (isFirstRegularStep ? 'Listen and type the word' : 'Listen and type the word');
   const hookBaseLine = aiCfg?.baseLine || (isFirstRegularStep
-    ? 'With forest wisdom gained, Mia moves deeper into the mystical woodland paths.'
-    : 'The forest whispers with ancient secrets as Mia continues her quest through the enchanted clearing.');
+    ? 'With digital wisdom gained, Gregory moves deeper into the corrupted realm of Enderby, BC.'
+    : 'The digital corruption whispers with glitched secrets as Gregory continues his quest through the internet café.');
   const hookValidationWord = aiCfg?.validationWord || (isSecondRegularStep ? 'map' : (isFirstRegularStep ? 'path' : (currentLongAQuestion?.word || 'word')));
   const hookIntent = aiCfg?.intent || (isFirstRegularStep ? 'spelling' : 'spelling');
 
@@ -837,15 +837,15 @@ Write one friendly nudge and then three natural-looking variants of the same wor
             role: 'system',
             content: `You write Kindergarten read-aloud micro-passages that are fun, playful, and tightly tied to the child's ongoing adventure. Your success lies in keeping the passage at the right difficulty level while also contextualising it perfectly to the adventure to keep it coherent and interesting.
 
-Adventure Setting: Mystical forest with Mia (curious girl in forest-green cloak), Shadow (mysterious black dog guide), Mia's sister, and Boy Protector in a hidden clearing with glowing mushrooms and peaceful animals.
+Adventure Setting: Digital corruption in Enderby, BC with Gregory (brave boy with dark spiky hair, blue hoodie with glowing runes, and Time Cloak), battling the iPad Kid's brainrot corruption in internet cafés and glitched reality.
 
 Strict rules:
 0) Event anchoring: Build directly on the most recent event; include at least one concrete detail from it. Do not change the location/scene or introduce unrelated new objects.
 1) Audience/decodability: Kindergarten. Mostly CVC and common sight words. Strong focus on SHORT O CVC words. Do not use difficult words since this is a reading exercise for kindergarten students.
 2) Length: EXACTLY 2 sentences; total 10-12 words.
 3) Include these target words exactly: "hot", "pot".
-4) Keep it lively and connected to the forest adventure.
-5) Name usage: You may use "Mia," "Shadow," and "sister." Avoid other proper names.
+4) Keep it lively and connected to the digital corruption adventure.
+5) Name usage: You may use "Gregory" and "iPad Kid." Avoid other proper names.
 6) Clarity: Very short, simple sentences appropriate for kindergarten reading level.
 7) Output format: Return ONLY the 2 sentences. No titles, labels, or extra text.`
           },
@@ -931,7 +931,7 @@ Strict rules:
         console.error('Error generating Long A passage:', error);
         if (!cancelled && currentLongAQuestion) {
           // Fallback to base line
-          const fallback = currentLongAQuestion.aiHook?.baseLine || 'A glowing mushroom doorway appears in the forest wall. Mia sees magical creatures floating through the mystical opening.';
+          const fallback = currentLongAQuestion.aiHook?.baseLine || 'A glowing digital portal appears in the internet café wall. Gregory sees corrupted code floating through the glitched opening.';
           setLongAPassage(fallback);
           setHasGeneratedLongAPassage(true);
           setIsLongAPassageLoading(false);
@@ -1049,8 +1049,8 @@ Strict rules:
         const data = await res.json();
         if (!cancelled) {
           const summary = (data.reply || '').trim() || (isFirstRegularStep
-            ? '"Look! The mystical forest paths stretch endlessly," whispers Shadow. "Here\'s a clue, Irene: listen and type where we\'re traveling," echoes through the enchanted woodland.'
-            : '"The forest whispers with magic," says Shadow. "Here\'s a clue, Irene: listen and type the magical word," resonates through the glowing mushrooms.');
+            ? '"Look! The corrupted digital paths stretch endlessly," whispers the Time Cloak. "Here\'s a clue, Gregory: listen and type where we\'re traveling," echoes through the glitched realm.'
+            : '"The digital corruption whispers with glitched code," says the Time Cloak. "Here\'s a clue, Gregory: listen and type the corrupted word," resonates through the internet café.');
           setAiSummary(summary);
           try { setHookForStep('3', summary); } catch {}
           setHasGeneratedSummary(true);
@@ -1058,8 +1058,8 @@ Strict rules:
       } catch {
         if (!cancelled) {
           setAiSummary(isFirstRegularStep
-            ? '"Look! The mystical forest paths stretch endlessly," whispers Shadow. "Here\'s a clue, Irene: listen and type where we\'re traveling," echoes through the enchanted woodland.'
-            : '"The forest whispers with magic," says Shadow. "Here\'s a clue, Irene: listen and type the magical word," resonates through the glowing mushrooms.');
+            ? '"Look! The corrupted digital paths stretch endlessly," whispers the Time Cloak. "Here\'s a clue, Gregory: listen and type where we\'re traveling," echoes through the glitched realm.'
+            : '"The digital corruption whispers with glitched code," says the Time Cloak. "Here\'s a clue, Gregory: listen and type the corrupted word," resonates through the internet café.');
           setHasGeneratedSummary(true);
         }
       } finally {
@@ -1242,7 +1242,7 @@ Strict rules:
       
       let validationInstructions: string;
       if (isCurrentLongASorting && sortingWords.length > 0) {
-        validationInstructions = `You are Irene's fun AI companion helping kids write their mystical forest adventure story. Your job is to check if they used one of these sorting words: ${sortingWords.join(', ')} in their sentence and respond naturally like a friendly narrator. 
+        validationInstructions = `You are Gregory's fun AI companion helping kids write their digital corruption adventure story. Your job is to check if they used one of these sorting words: ${sortingWords.join(', ')} in their sentence and respond naturally like a friendly narrator. 
 
 Respond as minified JSON: {"status":"valid|invalid|help","message":"<your response>"}
 
@@ -1250,7 +1250,7 @@ RULES:
 - "valid": If ANY of these words (${sortingWords.join(', ')}) appears in any form (case-insensitive) - including within contractions, compound words, or with punctuation. Say something encouraging like "Perfect!" or "Great use of [word they used]!" 
 - "invalid": If they used a completely different word or clearly misspelled it, gently point out what they wrote and what you need. Be specific: "I see you wrote '[their word]' but I need one of these words: ${sortingWords.join(', ')}. Try again!"`;
       } else {
-        validationInstructions = `You are Irene's fun AI companion helping kids write their mystical forest adventure story. Your job is to check if they used the target word "${hookValidationWord}" in their sentence and respond naturally like a friendly narrator. 
+        validationInstructions = `You are Gregory's fun AI companion helping kids write their digital corruption adventure story. Your job is to check if they used the target word "${hookValidationWord}" in their sentence and respond naturally like a friendly narrator. 
 
 Respond as minified JSON: {"status":"valid|invalid|help","message":"<your response>"}
 
@@ -1265,8 +1265,8 @@ RULES:
 
 Be conversational, not scripted. Acknowledge what they actually wrote. Keep responses under 25 words.` },
         { role: 'user', content: isCurrentLongASorting && sortingWords.length > 0 
-          ? `Sentence: ${text}\n\nCurrent story context: ${storyContext.join(' ')}\n\nHelp the child continue Mia's mystical forest adventure using one of these words: ${sortingWords.join(', ')}.`
-          : `Sentence: ${text}\n\nCurrent story context: ${storyContext.join(' ')}\n\nHelp the child continue Mia's mystical forest adventure using the word "${hookValidationWord}".` }
+          ? `Sentence: ${text}\n\nCurrent story context: ${storyContext.join(' ')}\n\nHelp the child continue Gregory's digital corruption adventure using one of these words: ${sortingWords.join(', ')}.`
+          : `Sentence: ${text}\n\nCurrent story context: ${storyContext.join(' ')}\n\nHelp the child continue Gregory's digital corruption adventure using the word "${hookValidationWord}".` }
       ];
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -1362,9 +1362,9 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
       
       if (/help|hint|example|idk|don\'?t know/i.test(text)) {
         if (isCurrentLongASorting && sortingWords.length > 0) {
-          return { status: 'help', message: `No worries! Pick one of these words and tell what Mia might do: ${sortingWords.join(', ')}` };
+          return { status: 'help', message: `No worries! Pick one of these words and tell what Gregory might do: ${sortingWords.join(', ')}` };
         } else {
-          return { status: 'help', message: `No worries! What if London's ${hookValidationWord} could help her explore the magical bakery? How might she use it?` };
+          return { status: 'help', message: `No worries! What if Gregory's ${hookValidationWord} could help him explore the corrupted realm? How might he use it?` };
         }
       }
       
@@ -3424,7 +3424,7 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                     <textarea
                       value={speechContinuationInput}
                       onChange={(e) => setSpeechContinuationInput(e.target.value)}
-                      placeholder="What happens next in Mia's adventure?"
+                      placeholder="What happens next in Gregory's adventure?"
                       rows={2}
                       style={{
                         width: '100%',
@@ -3578,7 +3578,7 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                   color: '#1f2937',
                   marginBottom: '4.8px'
                 }}>
-                  🎧 Listen to Mia's word!
+                  🎧 Listen to Gregory's word!
                 </div>
                 <div style={{ fontSize: '13px', color: '#6b7280', fontWeight: '500' }}>
                   Type the word you hear.
@@ -4150,7 +4150,7 @@ Be conversational, not scripted. Acknowledge what they actually wrote. Keep resp
                     color: '#1f2937',
                     marginBottom: '4.8px'
                   }}>
-                    🎧 Listen to Mia's word!
+                    🎧 Listen to Gregory's word!
                   </div>
                   <div style={{ fontSize: '14.4px', color: '#6b7280', fontWeight: '500' }}>
                     What sound does it start with?
