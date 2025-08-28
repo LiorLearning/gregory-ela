@@ -1885,6 +1885,7 @@ REQUIREMENTS:
 - Write 2-3 sentences continuing the adventure
 - Do NOT ask questions or create puzzles
 - The word will be automatically converted to a fill-in-the-blank
+- Ensure that the word is not used elsewhere int the passage so that the student can't just copy and paste the answer.
 
 Example: "We need to find the powerful ${targetWordsToUse[0]} hidden in the mysterious location..."
 
