@@ -184,14 +184,14 @@ export function AdventureMode2({ selectedStoryId, onAdventureMessage, onStoryUpd
 
   // Target words for spelling challenges - CVC words with short "o" and short "u"
   const targetWords: string[] = [
-    // Common long "u" words with silent e
-    'cube', 'flute', 'mule', 'tune', 'rude', 'cute', 'fuse', 'use', 'mute', 'huge',
+   // Common long "u" words with silent e
+    'cube', 'flute', 'mule', 'tune', 'rude', 'cute', 'fuse', 'use', 'mute', 'huge', 'dune', 'prune',
     // Common long "u" words with "ue"
-    'blue', 'clue', 'true', 'glue', 'rescue', 'issue', 'value', 'argue', 'continue', 'avenue',
-    // Common long "u" words with "oo"
-    'moon', 'spoon', 'broom', 'room', 'bloom', 'groom', 'zoom', 'food', 'school', 'noon',
-    // Common long "u" words with "ew"
-    'new', 'stew', 'crew', 'flew', 'chew', 'grew', 'blew', 'few', 'view', 'jewel'
+    'blue', 'clue', 'true', 'glue', 'rescue', 'issue', 'value', 'argue', 'continue', 'avenue', 'due', 'cue', 'hue'
+    // // Common long "u" words with "oo"
+    // 'moon', 'spoon', 'broom', 'room', 'bloom', 'groom', 'zoom', 'food', 'school', 'noon',
+    // // Common long "u" words with "ew"
+    // 'new', 'stew', 'crew', 'flew', 'chew', 'grew', 'blew', 'few', 'view', 'jewel'
   ].sort(() => Math.random() - 0.5); // Randomize the order
 
   // Function to get current phase and target words
